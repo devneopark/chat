@@ -1,0 +1,126 @@
+name: Backend Stable Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-stable-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish affected stable modules
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Print module graph
+        run: ./gradlew -q printModuleGraph > build/module-graph.json
+
+      - name: Detect stable affected modules
+        id: affected
+        run: |
+          set -euo pipefail
+          python3 tools/release/module_release.py detect-affected \
+            --graph build/module-graph.json \
+            --head "${{ github.sha }}" \
+            --stable \
+            --output build/affected.json
+          cp build/affected.json /tmp/backend-stable-affected.json
+
+      - name: Assert stable versions
+        if: steps.affected.outputs.has_affected == 'true'
+        run: |
+          python3 tools/release/module_release.py assert-versions \
+            --affected build/affected.json \
+            --require stable
+
+      - name: Publish stable modules
+        if: steps.affected.outputs.has_affected == 'true'
+        env:
+          GH_PACKAGES_USERNAME: ${{ secrets.GH_PACKAGES_USERNAME }}
+          GH_AUTOMATION_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > build/release-stable.sh
+          import json
+          from pathlib import Path
+
+          modules = json.loads(Path("build/affected.json").read_text())["affected"]
+          print("set -euo pipefail")
+          print('git config user.name "github-actions[bot]"')
+          print('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"')
+          for module in modules:
+              tag = f"{module['artifactId']}-v{module['version']}"
+              snapshot_tag = f"{module['artifactId']}-v{module['version']}-SNAPSHOT"
+              print(f"if git ls-remote --exit-code --tags origin refs/tags/{tag!r} >/dev/null 2>&1; then echo 'Stable tag already exists: {tag}'; exit 1; fi")
+              if module["type"] == "library":
+                  print(f"./gradlew {module['path'] + ':publish'!r}")
+                  print(f"git tag {tag!r} \"$GITHUB_SHA\"")
+                  print(f"git push origin {tag!r}")
+              else:
+                  print(f"./gradlew {module['path'] + ':bootJar'!r}")
+                  print(f"JAR=$(find {module['projectDir'] + '/build/libs'!r} -maxdepth 1 -name '*.jar' -print -quit)")
+                  print('ASSET_NAME=$(basename "$JAR")')
+                  print(f"git tag {tag!r} \"$GITHUB_SHA\"")
+                  print(f"git push origin {tag!r}")
+                  print(f"gh release create {tag!r} \"$JAR#$ASSET_NAME\" --title {tag!r} --notes 'Stable release for {module['artifactId']} {module['version']}'")
+              print(f"gh release delete {snapshot_tag!r} -y --cleanup-tag 2>/dev/null || true")
+              if module["type"] == "library":
+                  print(
+                      "python3 tools/release/module_release.py delete-package-version "
+                      "--owner \"$GITHUB_REPOSITORY_OWNER\" "
+                      f"--package-name {'com.devneopark.chat:' + module['artifactId']!r} "
+                      f"--version {module['version'] + '-SNAPSHOT'!r}"
+                  )
+          PY
+          bash build/release-stable.sh
+
+      - name: Open next SNAPSHOT PR
+        if: steps.affected.outputs.has_affected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch origin develop
+          BRANCH="chore/backend-next-snapshot-${GITHUB_RUN_ID}"
+          git switch -C "$BRANCH" origin/develop
+          cp /tmp/backend-stable-affected.json build/affected.json
+          python3 tools/release/module_release.py next-snapshots \
+            --affected build/affected.json
+          if git diff --quiet -- gradle/libs.versions.toml; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle/libs.versions.toml
+          git commit -m "chore: released 모듈 next SNAPSHOT 버전 갱신"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          gh pr create \
+            --base develop \
+            --head "$BRANCH" \
+            --title "chore: released 모듈 next SNAPSHOT 버전 갱신" \
+            --body "Stable release 완료 후 released 모듈을 다음 patch SNAPSHOT으로 갱신합니다."

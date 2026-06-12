@@ -1,0 +1,68 @@
+name: Backend Prepare Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Create release branch and PR
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Print module graph
+        run: ./gradlew -q printModuleGraph > build/module-graph.json
+
+      - name: Detect release affected modules
+        id: affected
+        run: |
+          set -euo pipefail
+          python3 tools/release/module_release.py detect-affected \
+            --graph build/module-graph.json \
+            --head HEAD \
+            --stable \
+            --output build/affected.json
+
+      - name: Promote affected modules to stable
+        if: steps.affected.outputs.has_affected == 'true'
+        run: |
+          python3 tools/release/module_release.py promote-stable \
+            --affected build/affected.json
+
+      - name: Create release PR
+        if: steps.affected.outputs.has_affected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="release/$(date -u +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add gradle/libs.versions.toml
+          git commit -m "chore: affected 모듈 stable 버전 승격"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: 백엔드 affected 모듈 stable 릴리즈 준비" \
+            --body "Affected 모듈의 SNAPSHOT 버전을 stable 버전으로 승격합니다."
