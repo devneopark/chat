@@ -27,6 +27,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch release refs
+        run: git fetch origin develop main --tags
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -48,7 +51,7 @@ jobs:
           python3 tools/release/module_release.py detect-affected \
             --graph build/module-graph.json \
             --base "${{ github.event.before }}" \
-            --head "${{ github.sha }}" \
+            --head HEAD \
             --output build/affected.json
 
       - name: Assert SNAPSHOT versions

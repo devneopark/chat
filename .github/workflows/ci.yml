@@ -32,6 +32,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.head_ref || github.ref }}
 
+      - name: Fetch release refs
+        run: git fetch origin develop main --tags
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -52,7 +55,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           BEFORE_SHA: ${{ github.event.before }}
-          CURRENT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -63,7 +65,7 @@ jobs:
           python3 tools/release/module_release.py detect-affected \
             --graph build/module-graph.json \
             --base "$BASE" \
-            --head "$CURRENT_SHA" \
+            --head HEAD \
             --output build/affected.json
 
       - name: Bump affected modules to SNAPSHOT

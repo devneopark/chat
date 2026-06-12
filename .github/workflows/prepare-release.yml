@@ -20,6 +20,9 @@ jobs:
           fetch-depth: 0
           ref: develop
 
+      - name: Fetch release refs
+        run: git fetch origin develop main --tags
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
