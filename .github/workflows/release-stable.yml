@@ -37,7 +37,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Print module graph
-        run: ./gradlew -q printModuleGraph > build/module-graph.json
+        run: |
+          mkdir -p build
+          ./gradlew -q printModuleGraph > build/module-graph.json
 
       - name: Detect stable affected modules
         id: affected
