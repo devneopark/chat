@@ -1,8 +1,10 @@
 [versions]
+# Build plugin versions
 kotlin = "2.3.21"
 spring-boot = "4.0.6"
 spring-dependency-management = "1.1.7"
 
+# Internal module versions
 domain-message-event = "0.0.1-SNAPSHOT"
 domain-message-model = "0.0.1-SNAPSHOT"
 domain-message-reference = "0.0.1-SNAPSHOT"

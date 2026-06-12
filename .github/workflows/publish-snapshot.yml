@@ -6,6 +6,7 @@ on:
       - develop
     paths:
       - "backend/**"
+      - ".github/workflows/publish-snapshot.yml"
 
 permissions:
   contents: read

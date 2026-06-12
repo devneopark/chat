@@ -7,13 +7,13 @@ on:
       - main
     paths:
       - "backend/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/*.yml"
   push:
     branches:
       - develop
     paths:
       - "backend/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/*.yml"
 
 permissions:
   contents: read
