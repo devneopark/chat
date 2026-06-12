@@ -1,0 +1,37 @@
+[versions]
+kotlin = "2.3.21"
+spring-boot = "4.0.6"
+spring-dependency-management = "1.1.7"
+
+domain-message-event = "0.0.1-SNAPSHOT"
+domain-message-model = "0.0.1-SNAPSHOT"
+domain-message-reference = "0.0.1-SNAPSHOT"
+domain-room-event = "0.0.1-SNAPSHOT"
+domain-room-model = "0.0.1-SNAPSHOT"
+domain-room-reference = "0.0.1-SNAPSHOT"
+domain-user-event = "0.0.1-SNAPSHOT"
+domain-user-model = "0.0.1-SNAPSHOT"
+domain-user-reference = "0.0.1-SNAPSHOT"
+messaging-gateway = "0.0.1-SNAPSHOT"
+rest-api = "0.0.1-SNAPSHOT"
+shared-kernel = "0.0.1-SNAPSHOT"
+
+[libraries]
+domain-message-event = { module = "com.devneopark.chat:domain-message-event", version.ref = "domain-message-event" }
+domain-message-model = { module = "com.devneopark.chat:domain-message-model", version.ref = "domain-message-model" }
+domain-message-reference = { module = "com.devneopark.chat:domain-message-reference", version.ref = "domain-message-reference" }
+domain-room-event = { module = "com.devneopark.chat:domain-room-event", version.ref = "domain-room-event" }
+domain-room-model = { module = "com.devneopark.chat:domain-room-model", version.ref = "domain-room-model" }
+domain-room-reference = { module = "com.devneopark.chat:domain-room-reference", version.ref = "domain-room-reference" }
+domain-user-event = { module = "com.devneopark.chat:domain-user-event", version.ref = "domain-user-event" }
+domain-user-model = { module = "com.devneopark.chat:domain-user-model", version.ref = "domain-user-model" }
+domain-user-reference = { module = "com.devneopark.chat:domain-user-reference", version.ref = "domain-user-reference" }
+messaging-gateway = { module = "com.devneopark.chat:messaging-gateway", version.ref = "messaging-gateway" }
+rest-api = { module = "com.devneopark.chat:rest-api", version.ref = "rest-api" }
+shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }

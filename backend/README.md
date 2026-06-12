@@ -102,17 +102,29 @@ modules/
 실행 모듈은 다른 모듈의 라이브러리 의존성으로 쓰지 않고 독립 실행 가능한 Spring Boot `bootJar` 산출물로 배포하므로
 GitHub Release asset으로 배포합니다.
 
-GitHub Releases는 tag 기준의 배포 이력, 릴리즈 노트, 실행 가능한 바이너리 다운로드 지점을 관리하는 용도로 사용합니다.
-GitHub Packages는 Maven/Gradle이 `group:artifact:version` 좌표로 resolve할 수 있는 패키지 저장소로 사용합니다.
+### 6.1. 브랜치 전략
 
-### 6.1. 버전 카탈로그
+GitFlow를 사용합니다.
+
+```text
+develop      SNAPSHOT 개발선
+main         stable 릴리즈선
+feature/*    기능 개발
+release/*    stable 승격 준비
+hotfix/*     stable 긴급 수정
+```
+
+`feature/*` 브랜치는 `develop`으로 병합하고, `release/*` 브랜치는 `main`으로 병합합니다.
+`develop`에서는 `x.y.z-SNAPSHOT` 버전을 사용하고, `main`으로 들어가는 릴리즈 대상 모듈은 `x.y.z` stable 버전을 사용합니다.
+
+### 6.2. 버전 카탈로그
 
 모듈 간 의존성 좌표와 버전은 Gradle version catalog인 `gradle/libs.versions.toml`에서 관리합니다.
 
 ```toml
 [versions]
-shared-kernel = "0.1.0"
-domain-user-model = "0.1.0"
+shared-kernel = "0.0.1-SNAPSHOT"
+domain-user-model = "0.0.1-SNAPSHOT"
 
 [libraries]
 shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
@@ -129,11 +141,26 @@ dependencies {
 }
 ```
 
-이 원칙은 배포된 artifact 간의 실제 호환성을 빌드 단계에서 검증하기 위한 것입니다.
-로컬 개발 편의를 위해 `mavenLocal()` 또는 composite build를 임시로 사용할 수는 있지만,
-CI와 release workflow에서는 GitHub Packages에 배포된 좌표를 기준으로 resolve합니다.
+PR CI에서는 새 upstream 변경과 downstream 모듈의 호환성을 검증하기 위해 `-PuseLocalModules=true`로 local dependency substitution을 사용합니다.
+배포 workflow에서는 GitHub Packages에 배포된 좌표만 resolve합니다.
 
-### 6.2. 모듈 좌표
+### 6.3. 버전 정책
+
+허용하는 버전 형식은 두 가지입니다.
+
+```text
+x.y.z-SNAPSHOT
+x.y.z
+```
+
+`SNAPSHOT`은 변경 가능한 개발 버전입니다.
+같은 SNAPSHOT 버전은 재배포할 수 있고, 실행 모듈의 prerelease asset도 교체할 수 있습니다.
+
+stable 버전은 불변 릴리즈입니다.
+같은 tag, package version, release, release asset이 이미 존재하면 배포하지 않습니다.
+stable 릴리즈가 성공하면 해당 stable로 승격된 모듈의 직전 SNAPSHOT package, prerelease, tag를 정리합니다.
+
+### 6.4. 모듈 좌표
 
 모든 배포 대상 모듈은 고정된 Maven 좌표를 가집니다.
 
@@ -143,19 +170,31 @@ artifact: <module-artifact-name>
 version: <module-version>
 ```
 
-artifact 이름은 GitHub Packages의 Maven registry 제약을 고려해 소문자, 숫자, 하이픈만 사용합니다.
-
 예시:
 
 ```text
-com.devneopark.chat:shared-kernel:0.1.0
-com.devneopark.chat:domain-user-model:0.1.0
-com.devneopark.chat:domain-user-event:0.1.0
-com.devneopark.chat:rest-api:0.1.0
-com.devneopark.chat:messaging-gateway:0.1.0
+com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT
+com.devneopark.chat:domain-user-model:0.0.1-SNAPSHOT
+com.devneopark.chat:rest-api:0.0.1-SNAPSHOT
+com.devneopark.chat:messaging-gateway:0.0.1-SNAPSHOT
 ```
 
-### 6.3. 배포 대상
+### 6.5. Affected 전파
+
+변경된 모듈을 직접 배포 대상으로 삼고, 해당 모듈을 직간접적으로 의존하는 소비 모듈까지 affected set에 포함합니다.
+
+```text
+rest-api depends on domain-user-model
+domain-user-model depends on shared-kernel
+
+shared-kernel 변경
+=> affected: shared-kernel, domain-user-model, rest-api
+```
+
+배포는 내부 의존성 그래프를 위상 정렬해 upstream에서 downstream 순서로 진행합니다.
+의존성 cycle이 발견되면 workflow를 실패시킵니다.
+
+### 6.6. 배포 대상
 
 라이브러리 모듈:
 
@@ -165,7 +204,6 @@ modules/libs/**
 
 - `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
 - 다른 모듈은 version catalog에 선언된 Maven 좌표로 이 artifact를 가져옵니다.
-- GitHub Release는 tag와 release note를 남기는 기준점으로 사용할 수 있지만, 주 배포 artifact 저장소는 GitHub Packages입니다.
 
 실행 모듈:
 
@@ -178,32 +216,45 @@ modules/services/messaging-gateway
 - 생성된 bootJar 파일을 GitHub Release asset으로 업로드합니다.
 - 실행 모듈의 bootJar는 다른 모듈의 `implementation(...)` 의존성으로 사용하지 않습니다.
 
-### 6.4. 태그 규칙
+### 6.7. 태그 규칙
 
 모듈별 독립 릴리즈를 전제로 태그에는 모듈 이름과 버전을 함께 포함합니다.
 
 ```text
-shared-kernel-v0.1.0
-domain-user-model-v0.1.0
-domain-user-event-v0.1.0
-rest-api-v0.1.0
-messaging-gateway-v0.1.0
+shared-kernel-v0.0.1-SNAPSHOT
+shared-kernel-v0.0.1
+rest-api-v0.0.1-SNAPSHOT
+rest-api-v0.0.1
 ```
 
-릴리즈 workflow는 태그 이름에서 대상 모듈과 버전을 파싱하고, version catalog 또는 Gradle의 `project.version`과 일치하는지 검증합니다.
-태그의 버전과 빌드 설정의 버전이 다르면 배포하지 않습니다.
+SNAPSHOT tag는 mutable 기준점입니다.
+stable tag는 immutable 기준점입니다.
 
-### 6.5. 실행 모듈 런타임 버전
+### 6.8. 인증과 Secret
+
+로컬 환경에는 GitHub token을 저장하지 않습니다.
+GitHub Repository Secrets를 사용합니다.
+
+필요 secrets:
+
+```text
+GH_PACKAGES_USERNAME
+GH_AUTOMATION_TOKEN
+```
+
+`GH_AUTOMATION_TOKEN`에는 private repository 기준으로 다음 권한이 필요합니다.
+
+```text
+repo
+read:packages
+write:packages
+delete:packages
+```
+
+secret은 필요한 workflow step에만 주입합니다.
+`pull_request_target`은 사용하지 않고, fork PR에서는 secret이 필요한 step을 실행하지 않습니다.
+
+### 6.9. 실행 모듈 런타임 버전
 
 실행 모듈은 빌드 시점의 `project.version`을 Spring Boot build info에 주입합니다.
 애플리케이션 런타임에서는 `BuildProperties`를 통해 현재 실행 중인 artifact 버전을 확인할 수 있어야 합니다.
-
-```kotlin
-springBoot {
-    buildInfo {
-        properties {
-            version = project.version.toString()
-        }
-    }
-}
-```

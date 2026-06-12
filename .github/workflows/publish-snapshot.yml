@@ -1,0 +1,121 @@
+name: Backend SNAPSHOT Publish
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-snapshot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish affected SNAPSHOT modules
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch release refs
+        run: git fetch origin develop main --tags
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Print module graph
+        run: |
+          mkdir -p build
+          ./gradlew -q printModuleGraph > build/module-graph.json
+
+      - name: Detect affected modules
+        id: affected
+        run: |
+          set -euo pipefail
+          python3 tools/release/module_release.py detect-affected \
+            --graph build/module-graph.json \
+            --base "${{ github.event.before }}" \
+            --head HEAD \
+            --output build/affected.json
+
+      - name: Assert SNAPSHOT versions
+        if: steps.affected.outputs.has_affected == 'true'
+        run: |
+          python3 tools/release/module_release.py assert-versions \
+            --affected build/affected.json \
+            --require snapshot
+
+      - name: Publish modules
+        if: steps.affected.outputs.has_affected == 'true'
+        env:
+          GH_PACKAGES_USERNAME: ${{ secrets.GH_PACKAGES_USERNAME }}
+          GH_AUTOMATION_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > build/publish-snapshot.sh
+          import json
+          from pathlib import Path
+
+          modules = json.loads(Path("build/affected.json").read_text())["affected"]
+          print("set -euo pipefail")
+          print('git config user.name "github-actions[bot]"')
+          print('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"')
+          for module in modules:
+              tag = f"{module['artifactId']}-v{module['version']}"
+              print(f"git tag -f {tag!r} \"$GITHUB_SHA\"")
+              print(f"git push -f origin {tag!r}")
+              if module["type"] == "library":
+                  print(f"./gradlew {module['path'] + ':publish'!r}")
+                  print(f"gh release view {tag!r} --json body -q .body > build/existing-body.md 2>/dev/null || true")
+                  print(
+                      "python3 tools/release/module_release.py snapshot-notes "
+                      f"--existing-body build/existing-body.md --output build/notes.md "
+                      "--group com.devneopark.chat "
+                      f"--version {module['version']!r} "
+                      "--commit \"$GITHUB_SHA\" --branch develop "
+                      "--run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\" "
+                      "--published-at \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" "
+                      f"--modules-json {json.dumps([module], separators=(',', ':'))!r} "
+                      "--assets-json '[]'"
+                  )
+                  print(f"gh release view {tag!r} >/dev/null 2>&1 && gh release edit {tag!r} --prerelease --notes-file build/notes.md || gh release create {tag!r} --prerelease --title {tag!r} --notes-file build/notes.md")
+              else:
+                  print(f"./gradlew {module['path'] + ':bootJar'!r}")
+                  print(f"JAR=$(find {module['projectDir'] + '/build/libs'!r} -maxdepth 1 -name '*.jar' -print -quit)")
+                  print('ASSET_NAME=$(basename "$JAR")')
+                  print('SHA256=$(shasum -a 256 "$JAR" | awk \'{print $1}\')')
+                  print('ASSETS_JSON=$(printf \'[{\"name\":\"%s\",\"sha256\":\"%s\"}]\' "$ASSET_NAME" "$SHA256")')
+                  print(f"gh release view {tag!r} --json body -q .body > build/existing-body.md 2>/dev/null || true")
+                  print(
+                      "python3 tools/release/module_release.py snapshot-notes "
+                      f"--existing-body build/existing-body.md --output build/notes.md "
+                      "--group com.devneopark.chat "
+                      f"--version {module['version']!r} "
+                      "--commit \"$GITHUB_SHA\" --branch develop "
+                      "--run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\" "
+                      "--published-at \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" "
+                      f"--modules-json {json.dumps([module], separators=(',', ':'))!r} "
+                      "--assets-json \"$ASSETS_JSON\""
+                  )
+                  print(f"gh release view {tag!r} >/dev/null 2>&1 && gh release edit {tag!r} --prerelease --notes-file build/notes.md || gh release create {tag!r} --prerelease --title {tag!r} --notes-file build/notes.md")
+                  print(f"gh release delete-asset {tag!r} \"$ASSET_NAME\" -y 2>/dev/null || true")
+                  print(f"gh release upload {tag!r} \"$JAR#$ASSET_NAME\" --clobber")
+          PY
+          bash build/publish-snapshot.sh
