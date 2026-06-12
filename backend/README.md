@@ -235,10 +235,21 @@ stable tag는 immutable 기준점입니다.
 로컬 환경에는 GitHub token을 저장하지 않습니다.
 GitHub Repository Secrets를 사용합니다.
 
+GitHub Actions 안에서 같은 repository의 tag, release, GitHub Packages를 다루는 작업은
+workflow에 명시한 `GITHUB_TOKEN` 권한을 사용합니다.
+
+```yaml
+permissions:
+  contents: write
+  packages: write
+```
+
+별도 repository secret은 bot commit, release PR 생성, next SNAPSHOT PR 생성처럼
+workflow가 branch/PR을 만들고 후속 workflow trigger가 필요한 자동화에 사용합니다.
+
 필요 secrets:
 
 ```text
-GH_PACKAGES_USERNAME
 GH_AUTOMATION_TOKEN
 ```
 
@@ -246,10 +257,10 @@ GH_AUTOMATION_TOKEN
 
 ```text
 repo
-read:packages
-write:packages
-delete:packages
 ```
+
+`GH_PACKAGES_USERNAME`은 로컬에서 직접 GitHub Packages에 publish할 때만 사용합니다.
+Actions 환경에서는 `github.actor`를 사용합니다.
 
 secret은 필요한 workflow step에만 주입합니다.
 `pull_request_target`은 사용하지 않고, fork PR에서는 secret이 필요한 step을 실행하지 않습니다.

@@ -9,7 +9,9 @@ on:
       - ".github/workflows/release-stable.yml"
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
+  pull-requests: write
 
 concurrency:
   group: backend-stable-release
@@ -66,9 +68,9 @@ jobs:
       - name: Publish stable modules
         if: steps.affected.outputs.has_affected == 'true'
         env:
-          GH_PACKAGES_USERNAME: ${{ secrets.GH_PACKAGES_USERNAME }}
-          GH_AUTOMATION_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+          GH_PACKAGES_USERNAME: ${{ github.actor }}
+          GH_AUTOMATION_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY' > build/release-stable.sh
