@@ -78,6 +78,7 @@ jobs:
           print("set -euo pipefail")
           print('git config user.name "github-actions[bot]"')
           print('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"')
+          print('git remote set-url origin "https://x-access-token:${GH_AUTOMATION_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"')
           for module in modules:
               tag = f"{module['artifactId']}-v{module['version']}"
               snapshot_tag = f"{module['artifactId']}-v{module['version']}-SNAPSHOT"
