@@ -86,19 +86,6 @@ jobs:
               print(f"git push -f origin {tag!r}")
               if module["type"] == "library":
                   print(f"./gradlew {module['path'] + ':publish'!r}")
-                  print(f"gh release view {tag!r} --json body -q .body > build/existing-body.md 2>/dev/null || true")
-                  print(
-                      "python3 tools/release/module_release.py snapshot-notes "
-                      f"--existing-body build/existing-body.md --output build/notes.md "
-                      "--group com.devneopark.chat "
-                      f"--version {module['version']!r} "
-                      "--commit \"$GITHUB_SHA\" --branch develop "
-                      "--run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\" "
-                      "--published-at \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" "
-                      f"--modules-json {json.dumps([module], separators=(',', ':'))!r} "
-                      "--assets-json '[]'"
-                  )
-                  print(f"gh release view {tag!r} >/dev/null 2>&1 && gh release edit {tag!r} --prerelease --notes-file build/notes.md || gh release create {tag!r} --prerelease --title {tag!r} --notes-file build/notes.md")
               else:
                   print(f"./gradlew {module['path'] + ':bootJar'!r}")
                   print(f"JAR=$(find {module['projectDir'] + '/build/libs'!r} -maxdepth 1 -name '*.jar' -print -quit)")
