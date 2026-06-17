@@ -145,6 +145,10 @@ subprojects {
             plugin("maven-publish")
         }
 
+        extensions.configure<JavaPluginExtension>("java") {
+            withSourcesJar()
+        }
+
         tasks.named<Jar>("jar") {
             archiveBaseName.set(releaseModule.artifactId)
             archiveVersion.set(project.version.toString())
