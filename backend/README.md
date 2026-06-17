@@ -265,7 +265,31 @@ Actions 환경에서는 `github.actor`를 사용합니다.
 secret은 필요한 workflow step에만 주입합니다.
 `pull_request_target`은 사용하지 않고, fork PR에서는 secret이 필요한 step을 실행하지 않습니다.
 
-### 6.9. 실행 모듈 런타임 버전
+### 6.9. 로컬 GitHub Packages 사용
+
+private GitHub Packages는 로컬 개발환경에서도 인증이 필요합니다.
+IDE에서 Gradle sync/build가 GitHub Packages artifact를 가져오려면
+IDE의 Gradle 실행 환경에 다음 환경변수를 주입해야 합니다.
+
+```bash
+GH_PACKAGES_USERNAME=devneopark
+GH_AUTOMATION_TOKEN=<read:packages 권한이 있는 GitHub token>
+```
+
+루트 Gradle 설정은 다음 순서로 credential을 찾습니다.
+
+```text
+username: githubPackagesUsername -> GH_PACKAGES_USERNAME -> GITHUB_ACTOR
+token: githubPackagesToken -> GH_AUTOMATION_TOKEN -> GITHUB_TOKEN
+```
+
+CLI에서 일시적으로 검증할 때는 다음처럼 실행할 수 있습니다.
+
+```bash
+GH_PACKAGES_USERNAME=devneopark GH_AUTOMATION_TOKEN="$(gh auth token)" ./gradlew build
+```
+
+### 6.10. 실행 모듈 런타임 버전
 
 실행 모듈은 빌드 시점의 `project.version`을 Spring Boot build info에 주입합니다.
 애플리케이션 런타임에서는 `BuildProperties`를 통해 현재 실행 중인 artifact 버전을 확인할 수 있어야 합니다.

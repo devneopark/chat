@@ -45,10 +45,12 @@ val releaseModulesByArtifactId = releaseModules.associateBy { it.artifactId }
 val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
 val useLocalModules = providers.gradleProperty("useLocalModules").map(String::toBoolean).orElse(false)
 val githubPackagesUsername = providers
-    .environmentVariable("GH_PACKAGES_USERNAME")
+    .gradleProperty("githubPackagesUsername")
+    .orElse(providers.environmentVariable("GH_PACKAGES_USERNAME"))
     .orElse(providers.environmentVariable("GITHUB_ACTOR"))
 val githubPackagesToken = providers
-    .environmentVariable("GH_AUTOMATION_TOKEN")
+    .gradleProperty("githubPackagesToken")
+    .orElse(providers.environmentVariable("GH_AUTOMATION_TOKEN"))
     .orElse(providers.environmentVariable("GITHUB_TOKEN"))
 
 fun versionFor(alias: String): String =
