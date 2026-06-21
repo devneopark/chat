@@ -36,6 +36,7 @@ val releaseModules = listOf(
     ReleaseModule(":modules:libs:domains:user:event", "domain-user-event", "domain-user-event", "library"),
     ReleaseModule(":modules:libs:domains:user:model", "domain-user-model", "domain-user-model", "library"),
     ReleaseModule(":modules:libs:domains:user:reference", "domain-user-reference", "domain-user-reference", "library"),
+    ReleaseModule(":modules:libs:domains:user:service", "domain-user-service", "domain-user-service", "library"),
     ReleaseModule(":modules:libs:shared:kernel", "shared-kernel", "shared-kernel", "library"),
     ReleaseModule(":modules:services:messaging-gateway", "messaging-gateway", "messaging-gateway", "service"),
     ReleaseModule(":modules:services:rest-api", "rest-api", "rest-api", "service"),
