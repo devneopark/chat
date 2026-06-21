@@ -14,6 +14,7 @@ domain-room-reference = "0.0.1-SNAPSHOT"
 domain-user-event = "0.0.1-SNAPSHOT"
 domain-user-model = "0.0.1-SNAPSHOT"
 domain-user-reference = "0.0.1-SNAPSHOT"
+domain-user-service = "0.0.1-SNAPSHOT"
 messaging-gateway = "0.0.1-SNAPSHOT"
 rest-api = "0.0.1-SNAPSHOT"
 shared-kernel = "0.0.1-SNAPSHOT"
@@ -28,6 +29,7 @@ domain-room-reference = { module = "com.devneopark.chat:domain-room-reference", 
 domain-user-event = { module = "com.devneopark.chat:domain-user-event", version.ref = "domain-user-event" }
 domain-user-model = { module = "com.devneopark.chat:domain-user-model", version.ref = "domain-user-model" }
 domain-user-reference = { module = "com.devneopark.chat:domain-user-reference", version.ref = "domain-user-reference" }
+domain-user-service = { module = "com.devneopark.chat:domain-user-service", version.ref = "domain-user-service" }
 messaging-gateway = { module = "com.devneopark.chat:messaging-gateway", version.ref = "messaging-gateway" }
 rest-api = { module = "com.devneopark.chat:rest-api", version.ref = "rest-api" }
 shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }

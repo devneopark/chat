@@ -11,6 +11,7 @@ include(":modules:libs:domains:room:reference")
 include(":modules:libs:domains:user:model")
 include(":modules:libs:domains:user:event")
 include(":modules:libs:domains:user:reference")
+include(":modules:libs:domains:user:service")
 
 include(":modules:libs:shared:kernel")
 
