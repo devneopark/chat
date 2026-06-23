@@ -1,7 +1,7 @@
 package com.devneopark.chat.lib.domain.user.model
 
 import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition
-import com.devneopark.chat.lib.shared.kernel.exception.DomainRuleViolationException
+import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

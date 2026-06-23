@@ -13,6 +13,7 @@ include(":modules:libs:domains:user:event")
 include(":modules:libs:domains:user:reference")
 include(":modules:libs:domains:user:service")
 
+include(":modules:libs:shared:domains:exception")
 include(":modules:libs:shared:kernel")
 
 include(":modules:services:rest-api")

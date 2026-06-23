@@ -2,7 +2,7 @@ package com.devneopark.chat.lib.domain.user.model
 
 import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition
 import com.devneopark.chat.lib.domain.user.reference.UserId
-import com.devneopark.chat.lib.shared.kernel.exception.DomainRuleViolationException
+import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 
 /**
  * 사용자 애그리거트 루트.

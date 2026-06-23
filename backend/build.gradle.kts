@@ -37,6 +37,7 @@ val releaseModules = listOf(
     ReleaseModule(":modules:libs:domains:user:model", "domain-user-model", "domain-user-model", "library"),
     ReleaseModule(":modules:libs:domains:user:reference", "domain-user-reference", "domain-user-reference", "library"),
     ReleaseModule(":modules:libs:domains:user:service", "domain-user-service", "domain-user-service", "library"),
+    ReleaseModule(":modules:libs:shared:domains:exception", "shared-domain-exception", "shared-domain-exception", "library"),
     ReleaseModule(":modules:libs:shared:kernel", "shared-kernel", "shared-kernel", "library"),
     ReleaseModule(":modules:services:messaging-gateway", "messaging-gateway", "messaging-gateway", "service"),
     ReleaseModule(":modules:services:rest-api", "rest-api", "rest-api", "service"),
@@ -215,10 +216,15 @@ tasks.register("printModuleGraph") {
                 .relativeTo(rootProject.projectDir)
                 .path
                 .replace(File.separatorChar, '/')
-            val internalDependencies = moduleProject.configurations
-                .findByName("implementation")
-                ?.dependencies
-                ?.mapNotNull { dependency ->
+            val internalDependencies = listOf("api", "implementation")
+                .flatMap { configurationName ->
+                    moduleProject.configurations
+                        .findByName(configurationName)
+                        ?.dependencies
+                        ?.toList()
+                        .orEmpty()
+                }
+                .mapNotNull { dependency ->
                     when (dependency) {
                         is ExternalModuleDependency -> {
                             if (dependency.group == releaseGroup) {
@@ -231,9 +237,8 @@ tasks.register("printModuleGraph") {
                         else -> null
                     }
                 }
-                ?.distinct()
-                ?.sorted()
-                .orEmpty()
+                .distinct()
+                .sorted()
             val dependencyObjects = internalDependencies.joinToString(prefix = "[", postfix = "]") { dependencyPath ->
                 val dependencyModule = releaseModulesByPath.getValue(dependencyPath)
                 """
