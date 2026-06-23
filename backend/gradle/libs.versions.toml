@@ -17,6 +17,7 @@ domain-user-reference = "0.0.1-SNAPSHOT"
 domain-user-service = "0.0.1-SNAPSHOT"
 messaging-gateway = "0.0.1-SNAPSHOT"
 rest-api = "0.0.1-SNAPSHOT"
+shared-domain-exception = "0.0.1-SNAPSHOT"
 shared-kernel = "0.0.1-SNAPSHOT"
 
 [libraries]
@@ -32,6 +33,7 @@ domain-user-reference = { module = "com.devneopark.chat:domain-user-reference", 
 domain-user-service = { module = "com.devneopark.chat:domain-user-service", version.ref = "domain-user-service" }
 messaging-gateway = { module = "com.devneopark.chat:messaging-gateway", version.ref = "messaging-gateway" }
 rest-api = { module = "com.devneopark.chat:rest-api", version.ref = "rest-api" }
+shared-domain-exception = { module = "com.devneopark.chat:shared-domain-exception", version.ref = "shared-domain-exception" }
 shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
 
 [plugins]

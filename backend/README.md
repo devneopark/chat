@@ -7,7 +7,7 @@
 실시간 채팅 서비스의 서버 애플리케이션을 구성하는 백엔드 프로젝트입니다.
 
 백엔드는 사용자와 채팅방을 관리하는 HTTP API, 클라이언트와 실시간 메시지를 주고받는 메시징 게이트웨이,
-그리고 여러 실행 모듈이 공유하는 도메인 라이브러리로 구성합니다.
+그리고 여러 실행 모듈이 공유하는 도메인 및 shared 라이브러리로 구성합니다.
 
 단일 백엔드 코드베이스 안에서 도메인 경계를 명확히 나누고, 실행 애플리케이션의 책임을 분리합니다.
 
@@ -47,7 +47,8 @@ modules/libs/domains/<DOMAIN_NAME>
 ## 2. 설계 방향
 
 - 실행 가능한 서버 애플리케이션은 `services` 하위에 둡니다.
-- 도메인 공통 코드는 `libs/domains` 하위에 둡니다.
+- 도메인별 코드는 `libs/domains` 하위에 둡니다.
+- 여러 도메인에서 함께 쓰는 기반 계약은 `libs/shared` 하위에 둡니다.
 - 도메인 모듈은 `model`, `event`, `reference` 역할로 나눕니다.
 - Spring Boot 실행 JAR은 실제 서비스 모듈에서만 생성합니다.
 
@@ -56,15 +57,19 @@ modules/libs/domains/<DOMAIN_NAME>
 ```text
 modules/
 ├── libs/
-│   └── domains/
-│       ├── room/
-│       │   ├── event/
-│       │   ├── model/
-│       │   └── reference/
-│       └── user/
-│           ├── event/
-│           ├── model/
-│           └── reference/
+│   ├── domains/
+│   │   ├── room/
+│   │   │   ├── event/
+│   │   │   ├── model/
+│   │   │   └── reference/
+│   │   └── user/
+│   │       ├── event/
+│   │       ├── model/
+│   │       └── reference/
+│   └── shared/
+│       ├── domains/
+│       │   └── exception/
+│       └── kernel/
 └── services/
     ├── messaging-gateway/
     └── rest-api/
@@ -124,10 +129,12 @@ hotfix/*     stable 긴급 수정
 ```toml
 [versions]
 shared-kernel = "0.0.1-SNAPSHOT"
+shared-domain-exception = "0.0.1-SNAPSHOT"
 domain-user-model = "0.0.1-SNAPSHOT"
 
 [libraries]
 shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
+shared-domain-exception = { module = "com.devneopark.chat:shared-domain-exception", version.ref = "shared-domain-exception" }
 domain-user-model = { module = "com.devneopark.chat:domain-user-model", version.ref = "domain-user-model" }
 ```
 
@@ -174,6 +181,7 @@ version: <module-version>
 
 ```text
 com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT
+com.devneopark.chat:shared-domain-exception:0.0.1-SNAPSHOT
 com.devneopark.chat:domain-user-model:0.0.1-SNAPSHOT
 com.devneopark.chat:rest-api:0.0.1-SNAPSHOT
 com.devneopark.chat:messaging-gateway:0.0.1-SNAPSHOT

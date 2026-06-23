@@ -1,4 +1,6 @@
-package com.devneopark.chat.lib.shared.kernel.exception
+package com.devneopark.chat.lib.shared.domain.exception
+
+import com.devneopark.chat.lib.shared.kernel.exception.ExceptionBase
 
 /**
  * 도메인 규칙을 만족하지 못해 요청을 처리할 수 없을 때 사용하는 예외.
