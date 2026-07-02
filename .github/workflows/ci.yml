@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   build:
@@ -107,12 +108,14 @@ jobs:
       - name: Build affected modules
         env:
           AFFECTED_PATHS: ${{ steps.affected.outputs.affected_paths }}
+          GH_PACKAGES_USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ -z "$AFFECTED_PATHS" ]; then
-            ./gradlew -PuseLocalModules=true build
+            ./gradlew build
             exit 0
           fi
           for module_path in $AFFECTED_PATHS; do
-            ./gradlew -PuseLocalModules=true "${module_path}:build"
+            ./gradlew "${module_path}:build"
           done
