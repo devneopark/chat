@@ -148,8 +148,8 @@ dependencies {
 }
 ```
 
-PR CI에서는 새 upstream 변경과 downstream 모듈의 호환성을 검증하기 위해 `-PuseLocalModules=true`로 local dependency substitution을 사용합니다.
-배포 workflow에서는 GitHub Packages에 배포된 좌표만 resolve합니다.
+PR CI와 배포 workflow는 모두 GitHub Packages에 배포된 Maven 좌표만 resolve합니다.
+따라서 upstream 모듈을 먼저 배포한 뒤 downstream 모듈의 변경을 검증하고 배포합니다.
 
 ### 6.3. 버전 정책
 
