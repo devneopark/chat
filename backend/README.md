@@ -122,29 +122,26 @@ hotfix/*     stable 긴급 수정
 `feature/*` 브랜치는 `develop`으로 병합하고, `release/*` 브랜치는 `main`으로 병합합니다.
 `develop`에서는 `x.y.z-SNAPSHOT` 버전을 사용하고, `main`으로 들어가는 릴리즈 대상 모듈은 `x.y.z` stable 버전을 사용합니다.
 
-### 6.2. 버전 카탈로그
+### 6.2. 버전 카탈로그와 내부 모듈 의존성
 
-모듈 간 의존성 좌표와 버전은 Gradle version catalog인 `gradle/libs.versions.toml`에서 관리합니다.
+Gradle version catalog인 `gradle/libs.versions.toml`에서는 빌드 플러그인 버전과
+각 배포 대상 모듈 자체의 버전을 관리합니다.
 
 ```toml
 [versions]
 shared-kernel = "0.0.1-SNAPSHOT"
 shared-domain-exception = "0.0.1-SNAPSHOT"
 domain-user-model = "0.0.1-SNAPSHOT"
-
-[libraries]
-shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
-shared-domain-exception = { module = "com.devneopark.chat:shared-domain-exception", version.ref = "shared-domain-exception" }
-domain-user-model = { module = "com.devneopark.chat:domain-user-model", version.ref = "domain-user-model" }
 ```
 
 모듈이 다른 내부 모듈을 의존할 때는 `project(":modules:...")` 의존성을 기본으로 사용하지 않습니다.
-이미 GitHub Packages에 배포된 Maven artifact를 version catalog alias로 참조합니다.
+각 소비 모듈의 빌드 파일에서 이미 GitHub Packages에 배포된 Maven artifact의 좌표와 버전을 명시합니다.
+의존성 버전은 해당 소비 모듈이 검증한 버전으로 고정하며, 배포 대상 모듈 자체의 버전과 독립적으로 관리합니다.
 
 ```kotlin
 dependencies {
-    implementation(libs.shared.kernel)
-    implementation(libs.domain.user.model)
+    implementation("com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat:domain-user-model:0.0.1-SNAPSHOT")
 }
 ```
 
@@ -211,7 +208,7 @@ modules/libs/**
 ```
 
 - `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
-- 다른 모듈은 version catalog에 선언된 Maven 좌표로 이 artifact를 가져옵니다.
+- 다른 모듈은 각 빌드 파일에 선언된 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
 
 실행 모듈:
 
