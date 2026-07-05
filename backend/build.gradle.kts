@@ -33,6 +33,7 @@ val releaseModules = listOf(
     ReleaseModule(":modules:libs:domains:room:event", "domain-room-event", "domain-room-event", "library"),
     ReleaseModule(":modules:libs:domains:room:model", "domain-room-model", "domain-room-model", "library"),
     ReleaseModule(":modules:libs:domains:room:reference", "domain-room-reference", "domain-room-reference", "library"),
+    ReleaseModule(":modules:libs:domains:room:service", "domain-room-service", "domain-room-service", "library"),
     ReleaseModule(":modules:libs:domains:user:event", "domain-user-event", "domain-user-event", "library"),
     ReleaseModule(":modules:libs:domains:user:model", "domain-user-model", "domain-user-model", "library"),
     ReleaseModule(":modules:libs:domains:user:reference", "domain-user-reference", "domain-user-reference", "library"),
