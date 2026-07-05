@@ -7,6 +7,7 @@ include(":modules:libs:domains:message:reference")
 include(":modules:libs:domains:room:model")
 include(":modules:libs:domains:room:event")
 include(":modules:libs:domains:room:reference")
+include(":modules:libs:domains:room:service")
 
 include(":modules:libs:domains:user:model")
 include(":modules:libs:domains:user:event")
