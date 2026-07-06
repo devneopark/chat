@@ -29,13 +29,13 @@ jobs:
       - name: Fetch release refs
         run: git fetch origin develop main --tags
 
-      - name: Download SNAPSHOT release plan
+      - name: Download deployment plan
         uses: actions/download-artifact@v5
         with:
-          name: backend-snapshot-release-plan
+          name: backend-deployment-plan
           path: backend/build
 
-      - name: Read SNAPSHOT release plan
+      - name: Read deployment plan
         id: affected
         run: |
           python3 - <<'PY'
