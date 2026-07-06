@@ -1,14 +1,10 @@
 name: Backend SNAPSHOT Publish
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - "backend/**"
-      - ".github/workflows/publish-snapshot.yml"
+  workflow_call:
 
 permissions:
+  actions: read
   contents: write
   packages: write
 
@@ -28,9 +24,29 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
       - name: Fetch release refs
         run: git fetch origin develop main --tags
+
+      - name: Download SNAPSHOT release plan
+        uses: actions/download-artifact@v5
+        with:
+          name: backend-snapshot-release-plan
+          path: backend/build
+
+      - name: Read SNAPSHOT release plan
+        id: affected
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          affected = json.loads(Path("build/affected.json").read_text())["affected"]
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              output.write(f"has_affected={'true' if affected else 'false'}\n")
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -40,21 +56,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Print module graph
-        run: |
-          mkdir -p build
-          ./gradlew -q printModuleGraph > build/module-graph.json
-
-      - name: Detect affected modules
-        id: affected
-        run: |
-          set -euo pipefail
-          python3 tools/release/module_release.py detect-affected \
-            --graph build/module-graph.json \
-            --base "${{ github.event.before }}" \
-            --head HEAD \
-            --output build/affected.json
 
       - name: Assert SNAPSHOT versions
         if: steps.affected.outputs.has_affected == 'true'
@@ -69,6 +70,7 @@ jobs:
           GH_PACKAGES_USERNAME: ${{ github.actor }}
           GH_AUTOMATION_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           python3 - <<'PY' > build/publish-snapshot.sh
@@ -82,7 +84,7 @@ jobs:
           print('git remote set-url origin "https://x-access-token:${GH_AUTOMATION_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"')
           for module in modules:
               tag = f"{module['artifactId']}-v{module['version']}"
-              print(f"git tag -f {tag!r} \"$GITHUB_SHA\"")
+              print(f"git tag -f {tag!r} \"$RELEASE_SHA\"")
               print(f"git push -f origin {tag!r}")
               if module["type"] == "library":
                   print(f"./gradlew {module['path'] + ':publish'!r}")
@@ -98,7 +100,7 @@ jobs:
                       f"--existing-body build/existing-body.md --output build/notes.md "
                       "--group com.devneopark.chat "
                       f"--version {module['version']!r} "
-                      "--commit \"$GITHUB_SHA\" --branch develop "
+                      "--commit \"$RELEASE_SHA\" --branch develop "
                       "--run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\" "
                       "--published-at \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" "
                       f"--modules-json {json.dumps([module], separators=(',', ':'))!r} "

@@ -119,3 +119,22 @@ jobs:
           for module_path in $AFFECTED_PATHS; do
             ./gradlew "${module_path}:build"
           done
+
+      - name: Upload SNAPSHOT release plan
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-snapshot-release-plan
+          path: backend/build/affected.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-snapshot:
+    name: Publish affected SNAPSHOT modules
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    uses: ./.github/workflows/publish-snapshot.yml
