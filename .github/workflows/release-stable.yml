@@ -14,7 +14,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: backend-stable-release
+  group: backend-ci-deploy
   cancel-in-progress: false
 
 jobs:

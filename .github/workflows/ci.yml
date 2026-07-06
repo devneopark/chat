@@ -19,6 +19,10 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: backend-ci-deploy
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Detect affected modules and build
