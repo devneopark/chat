@@ -19,6 +19,10 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: backend-ci-deploy
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Detect affected modules and build
@@ -119,3 +123,22 @@ jobs:
           for module_path in $AFFECTED_PATHS; do
             ./gradlew "${module_path}:build"
           done
+
+      - name: Upload deployment plan
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-deployment-plan
+          path: backend/build/affected.json
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Deploy affected modules
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    uses: ./.github/workflows/deploy.yml

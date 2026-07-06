@@ -1,0 +1,15 @@
+name: Backend Deploy
+
+on:
+  workflow_call:
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  publish-snapshot:
+    name: Publish affected modules to SNAPSHOT channel
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/publish-snapshot.yml
