@@ -27,6 +27,7 @@ data class ReleaseModule(
 val releaseGroup = "com.devneopark.chat"
 val githubPackagesUrl = "https://maven.pkg.github.com/devneopark/chat"
 val releaseModules = listOf(
+    ReleaseModule(":modules:libs:domains:admission-slot:reference", "domain-admission-slot-reference", "domain-admission-slot-reference", "library"),
     ReleaseModule(":modules:libs:domains:room:model", "domain-room-model", "domain-room-model", "library"),
     ReleaseModule(":modules:libs:domains:room:reference", "domain-room-reference", "domain-room-reference", "library"),
     ReleaseModule(":modules:libs:domains:room:service", "domain-room-service", "domain-room-service", "library"),
