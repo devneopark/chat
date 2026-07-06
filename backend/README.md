@@ -42,14 +42,15 @@ modules/libs/domains/<DOMAIN_NAME>
 
 실행 애플리케이션에서 함께 사용하는 도메인 단위 라이브러리입니다.
 
-현재는 `user`, `room` 도메인 영역을 기준으로 모듈을 나누고, 각 도메인 안에서 모델, 이벤트, 참조 타입을 분리합니다.
+서비스 기능이 확장되면 도메인 경계와 코드의 역할에 따라 필요한 라이브러리 모듈을 추가합니다.
+모든 도메인에 동일한 하위 모듈을 미리 만들지 않고, 독립적인 책임과 실제 구현이 생긴 단위만 모듈로 분리합니다.
 
 ## 2. 설계 방향
 
 - 실행 가능한 서버 애플리케이션은 `services` 하위에 둡니다.
 - 도메인별 코드는 `libs/domains` 하위에 둡니다.
 - 여러 도메인에서 함께 쓰는 기반 계약은 `libs/shared` 하위에 둡니다.
-- 도메인 모듈은 `model`, `event`, `reference` 역할로 나눕니다.
+- 도메인 모듈은 필요한 역할에 따라 `model`, `reference`, `service` 등으로 나눕니다.
 - Spring Boot 실행 JAR은 실제 서비스 모듈에서만 생성합니다.
 
 ## 3. 모듈 구조
@@ -58,21 +59,13 @@ modules/libs/domains/<DOMAIN_NAME>
 modules/
 ├── libs/
 │   ├── domains/
-│   │   ├── room/
-│   │   │   ├── event/
-│   │   │   ├── model/
-│   │   │   └── reference/
-│   │   └── user/
-│   │       ├── event/
-│   │       ├── model/
-│   │       └── reference/
+│   │   └── <DOMAIN_NAME>/
+│   │       ├── <MODULE_ROLE>/
+│   │       └── ...
 │   └── shared/
-│       ├── domains/
-│       │   └── exception/
-│       └── kernel/
+│       └── <SHARED_MODULE>/
 └── services/
-    ├── messaging-gateway/
-    └── rest-api/
+    └── <SERVICE_NAME>/
 ```
 
 ## 4. 기술 스택
