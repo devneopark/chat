@@ -5,6 +5,7 @@ spring-boot = "4.0.6"
 spring-dependency-management = "1.1.7"
 
 # Internal module versions
+domain-admission-slot-reference = "0.0.1-SNAPSHOT"
 domain-room-model = "0.0.1-SNAPSHOT"
 domain-room-reference = "0.0.1-SNAPSHOT"
 domain-room-service = "0.0.1-SNAPSHOT"

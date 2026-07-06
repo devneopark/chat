@@ -1,5 +1,7 @@
 rootProject.name = "chat"
 
+include(":modules:libs:domains:admission-slot:reference")
+
 include(":modules:libs:domains:room:model")
 include(":modules:libs:domains:room:reference")
 include(":modules:libs:domains:room:service")
