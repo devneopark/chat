@@ -1,4 +1,5 @@
 import java.util.concurrent.TimeUnit
+import org.gradle.api.Project
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -19,43 +20,127 @@ plugins {
 
 data class ReleaseModule(
     val path: String,
+    val projectDir: String,
     val artifactId: String,
     val versionAlias: String,
     val type: String,
+    val tagNamespace: String,
 )
 
-val releaseGroup = "com.devneopark.chat"
+val releaseGroup = "com.devneopark.chat.backend"
 val githubPackagesUrl = "https://maven.pkg.github.com/devneopark/chat"
-val releaseModules = listOf(
-    ReleaseModule(":modules:libs:domains:admission-slot:reference", "domain-admission-slot-reference", "domain-admission-slot-reference", "library"),
-    ReleaseModule(":modules:libs:domains:room:model", "domain-room-model", "domain-room-model", "library"),
-    ReleaseModule(":modules:libs:domains:room:reference", "domain-room-reference", "domain-room-reference", "library"),
-    ReleaseModule(":modules:libs:domains:room:service", "domain-room-service", "domain-room-service", "library"),
-    ReleaseModule(":modules:libs:domains:user:model", "domain-user-model", "domain-user-model", "library"),
-    ReleaseModule(":modules:libs:domains:user:reference", "domain-user-reference", "domain-user-reference", "library"),
-    ReleaseModule(":modules:libs:domains:user:service", "domain-user-service", "domain-user-service", "library"),
-    ReleaseModule(":modules:libs:shared:domains:exception", "shared-domain-exception", "shared-domain-exception", "library"),
-    ReleaseModule(":modules:libs:shared:kernel", "shared-kernel", "shared-kernel", "library"),
-    ReleaseModule(":modules:services:messaging-gateway", "messaging-gateway", "messaging-gateway", "service"),
-    ReleaseModule(":modules:services:rest-api", "rest-api", "rest-api", "service"),
-)
-val releaseModulesByPath = releaseModules.associateBy { it.path }
-val releaseModulesByArtifactId = releaseModules.associateBy { it.artifactId }
+
+fun releaseModuleFor(project: Project): ReleaseModule {
+    val directorySegments = project.projectDir
+        .relativeTo(rootProject.projectDir)
+        .invariantSeparatorsPath
+        .split('/')
+    require(directorySegments.size >= 3 && directorySegments[0] == "modules") {
+        "Unsupported backend module directory: ${project.projectDir}"
+    }
+
+    val type = when (directorySegments[1]) {
+        "libs" -> "library"
+        "services" -> "service"
+        else -> throw GradleException("Module must be under modules/libs or modules/services: ${project.projectDir}")
+    }
+    val artifactSegments = if (type == "library") {
+        directorySegments.drop(2).map { segment -> if (segment == "domains") "domain" else segment }
+    } else {
+        directorySegments.drop(2)
+    }
+    val artifactId = artifactSegments.joinToString("-")
+    require(artifactId.isNotBlank()) { "Cannot derive artifactId from ${project.path}" }
+    require(project.name == artifactId) {
+        "Gradle project name must match backend artifactId: ${project.path} != $artifactId"
+    }
+
+    return ReleaseModule(
+        path = project.path,
+        projectDir = project.projectDir.relativeTo(rootProject.projectDir).invariantSeparatorsPath,
+        artifactId = artifactId,
+        versionAlias = "backend-$artifactId",
+        type = type,
+        tagNamespace = if (type == "library") "backend/libs" else "backend/services",
+    )
+}
+
+val releaseModules = subprojects
+    .filter { project ->
+        project.buildFile.isFile &&
+            (project.path.startsWith(":libs:") || project.path.startsWith(":services:"))
+    }
+    .map(::releaseModuleFor)
+    .sortedBy(ReleaseModule::path)
+val releaseModulesByPath = releaseModules.associateBy(ReleaseModule::path)
+val releaseModulesByArtifactId = releaseModules.associateBy(ReleaseModule::artifactId)
+require(releaseModulesByArtifactId.size == releaseModules.size) {
+    "Duplicate backend artifactId detected"
+}
+
 val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-val useLocalModules = providers.gradleProperty("useLocalModules").map(String::toBoolean).orElse(false)
+val semverPattern = Regex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$")
+
+fun versionFor(alias: String): String =
+    versionCatalog.findVersion(alias)
+        .orElseThrow { GradleException("Version catalog alias not found: $alias") }
+        .requiredVersion
+
+releaseModules.forEach { module ->
+    val baseVersion = versionFor(module.versionAlias)
+    require(semverPattern.matches(baseVersion)) {
+        "Backend module version must be suffix-free SemVer: ${module.versionAlias}=$baseVersion"
+    }
+    if (module.type == "library") {
+        val library = versionCatalog.findLibrary(module.versionAlias)
+            .orElseThrow { GradleException("Version catalog library alias not found: ${module.versionAlias}") }
+            .get()
+        require(library.module.group == releaseGroup && library.module.name == module.artifactId) {
+            "Version catalog coordinate mismatch for ${module.path}: " +
+                "expected $releaseGroup:${module.artifactId}, actual ${library.module}"
+        }
+    }
+}
+
+val expectedVersionAliases = releaseModules.map(ReleaseModule::versionAlias).toSet()
+val orphanVersionAliases = versionCatalog.versionAliases
+    .filter { it.startsWith("backend-") && it !in expectedVersionAliases }
+require(orphanVersionAliases.isEmpty()) {
+    "Version catalog contains aliases without backend modules: ${orphanVersionAliases.sorted()}"
+}
+
+val expectedLibraryAliases = releaseModules
+    .filter { it.type == "library" }
+    .map(ReleaseModule::versionAlias)
+    .toSet()
+val orphanLibraryAliases = versionCatalog.libraryAliases
+    .filter { it.startsWith("backend-") && it !in expectedLibraryAliases }
+require(orphanLibraryAliases.isEmpty()) {
+    "Version catalog contains library aliases without backend library modules: ${orphanLibraryAliases.sorted()}"
+}
+
+val releaseChannel = providers.gradleProperty("releaseChannel")
+    .orElse("snapshot")
+    .map(String::lowercase)
+    .get()
+require(releaseChannel in setOf("snapshot", "stable")) {
+    "releaseChannel must be snapshot or stable: $releaseChannel"
+}
+
+fun channelVersion(baseVersion: String): String =
+    if (releaseChannel == "snapshot") "$baseVersion-SNAPSHOT" else baseVersion
+
+val useLocalModules = providers.gradleProperty("useLocalModules")
+    .map(String::toBoolean)
+    .orElse(false)
 val githubPackagesUsername = providers
     .gradleProperty("githubPackagesUsername")
     .orElse(providers.environmentVariable("GH_PACKAGES_USERNAME"))
     .orElse(providers.environmentVariable("GITHUB_ACTOR"))
 val githubPackagesToken = providers
     .gradleProperty("githubPackagesToken")
-    .orElse(providers.environmentVariable("GH_AUTOMATION_TOKEN"))
     .orElse(providers.environmentVariable("GITHUB_TOKEN"))
-
-fun versionFor(alias: String): String =
-    versionCatalog.findVersion(alias)
-        .orElseThrow { GradleException("Version catalog alias not found: $alias") }
-        .requiredVersion
+val releaseCommit = providers.environmentVariable("GITHUB_SHA").orElse("local")
 
 fun String.jsonEscape(): String =
     buildString {
@@ -70,6 +155,8 @@ fun String.jsonEscape(): String =
             }
         }
     }
+
+fun String.asJsonString(): String = "\"${jsonEscape()}\""
 
 group = releaseGroup
 
@@ -91,10 +178,7 @@ allprojects {
 }
 
 subprojects {
-    val releaseModule = releaseModulesByPath[path]
-    if (releaseModule == null) {
-        return@subprojects
-    }
+    val releaseModule = releaseModulesByPath[path] ?: return@subprojects
 
     apply {
         plugin("java")
@@ -102,7 +186,7 @@ subprojects {
     }
 
     group = releaseGroup
-    version = versionFor(releaseModule.versionAlias)
+    version = channelVersion(versionFor(releaseModule.versionAlias))
 
     extensions.configure<JavaPluginExtension>("java") {
         toolchain {
@@ -127,13 +211,19 @@ subprojects {
 
     configurations.configureEach {
         resolutionStrategy.cacheChangingModulesFor(0, TimeUnit.SECONDS)
+        resolutionStrategy.eachDependency {
+            if (requested.group == releaseGroup && requested.version != null) {
+                useVersion(channelVersion(requested.version!!))
+                because("Backend module versions use the workflow release channel.")
+            }
+        }
 
         if (useLocalModules.get()) {
             resolutionStrategy.dependencySubstitution {
-                releaseModules.forEach { releaseModule ->
-                    substitute(module("$releaseGroup:${releaseModule.artifactId}"))
-                        .using(project(releaseModule.path))
-                        .because("PR CI validates internal module changes from the current checkout.")
+                releaseModules.forEach { candidate ->
+                    substitute(module("$releaseGroup:${candidate.artifactId}"))
+                        .using(project(candidate.path))
+                        .because("PR validation uses backend modules from the current checkout.")
                 }
             }
         }
@@ -158,6 +248,17 @@ subprojects {
                 create<MavenPublication>("mavenJava") {
                     from(components["java"])
                     artifactId = releaseModule.artifactId
+                    versionMapping {
+                        usage("java-api") {
+                            fromResolutionResult()
+                        }
+                        usage("java-runtime") {
+                            fromResolutionResult()
+                        }
+                    }
+                    pom {
+                        properties.put("release.commit", releaseCommit)
+                    }
                 }
             }
 
@@ -190,7 +291,7 @@ subprojects {
         }
 
         tasks.named<BootJar>("bootJar") {
-            archiveFileName.set("${releaseModule.artifactId}-${project.version}.jar")
+            archiveFileName.set("backend-${releaseModule.artifactId}-${project.version}.jar")
         }
 
         dependencies {
@@ -204,16 +305,12 @@ subprojects {
 
 tasks.register("printModuleGraph") {
     group = "release"
-    description = "Prints release module metadata and internal dependencies as JSON."
+    description = "Prints backend release module metadata and declared dependencies as JSON."
 
     doLast {
         val modulesJson = releaseModules.joinToString(",\n") { releaseModule ->
             val moduleProject = project(releaseModule.path)
-            val projectDir = moduleProject.projectDir
-                .relativeTo(rootProject.projectDir)
-                .path
-                .replace(File.separatorChar, '/')
-            val internalDependencies = listOf("api", "implementation")
+            val declaredDependencies = listOf("api", "implementation")
                 .flatMap { configurationName ->
                     moduleProject.configurations
                         .findByName(configurationName)
@@ -221,51 +318,96 @@ tasks.register("printModuleGraph") {
                         ?.toList()
                         .orEmpty()
                 }
+
+            val internalDependencies = declaredDependencies
                 .mapNotNull { dependency ->
                     when (dependency) {
                         is ExternalModuleDependency -> {
                             if (dependency.group == releaseGroup) {
-                                releaseModulesByArtifactId[dependency.name]?.path
+                                val target = releaseModulesByArtifactId[dependency.name]
+                                val requestedVersion = dependency.version.orEmpty()
+                                val targetPath = target?.path.orEmpty()
+                                val targetArtifactId = target?.artifactId ?: dependency.name
+                                """
+                                {
+                                  "path": ${targetPath.asJsonString()},
+                                  "artifactId": ${targetArtifactId.asJsonString()},
+                                  "requestedVersion": ${requestedVersion.asJsonString()},
+                                  "effectiveVersion": ${channelVersion(requestedVersion).asJsonString()},
+                                  "registered": ${target != null}
+                                }
+                                """.trimIndent()
                             } else {
                                 null
                             }
                         }
-                        is ProjectDependency -> dependency.path
+                        is ProjectDependency -> {
+                            val target = releaseModulesByPath[dependency.path]
+                            """
+                            {
+                              "path": ${dependency.path.asJsonString()},
+                              "artifactId": ${(target?.artifactId ?: dependency.name).asJsonString()},
+                              "requestedVersion": "",
+                              "effectiveVersion": ${(target?.let { project(it.path).version.toString() } ?: "").asJsonString()},
+                              "registered": ${target != null}
+                            }
+                            """.trimIndent()
+                        }
                         else -> null
                     }
                 }
                 .distinct()
                 .sorted()
-            val dependencyObjects = internalDependencies.joinToString(prefix = "[", postfix = "]") { dependencyPath ->
-                val dependencyModule = releaseModulesByPath.getValue(dependencyPath)
-                """
-                {"path":"${dependencyModule.path.jsonEscape()}","artifactId":"${dependencyModule.artifactId.jsonEscape()}"}
-                """.trimIndent()
-            }
+                .joinToString(prefix = "[", postfix = "]")
+
+            val externalDependencies = declaredDependencies
+                .filterIsInstance<ExternalModuleDependency>()
+                .filter { dependency -> dependency.group != releaseGroup }
+                .map { dependency ->
+                    listOf(dependency.group.orEmpty(), dependency.name, dependency.version.orEmpty())
+                        .joinToString(":")
+                }
+                .distinct()
+                .sorted()
+                .joinToString(prefix = "[", postfix = "]") { it.asJsonString() }
 
             """
             {
-              "path": "${releaseModule.path.jsonEscape()}",
-              "projectDir": "${projectDir.jsonEscape()}",
-              "artifactId": "${releaseModule.artifactId.jsonEscape()}",
-              "versionAlias": "${releaseModule.versionAlias.jsonEscape()}",
-              "version": "${moduleProject.version.toString().jsonEscape()}",
-              "type": "${releaseModule.type.jsonEscape()}",
-              "dependencies": $dependencyObjects
+              "path": ${releaseModule.path.asJsonString()},
+              "projectDir": ${releaseModule.projectDir.asJsonString()},
+              "artifactId": ${releaseModule.artifactId.asJsonString()},
+              "versionAlias": ${releaseModule.versionAlias.asJsonString()},
+              "baseVersion": ${versionFor(releaseModule.versionAlias).asJsonString()},
+              "version": ${moduleProject.version.toString().asJsonString()},
+              "type": ${releaseModule.type.asJsonString()},
+              "tagNamespace": ${releaseModule.tagNamespace.asJsonString()},
+              "dependencies": $internalDependencies,
+              "externalDependencies": $externalDependencies
             }
             """.trimIndent()
+        }
+
+        val buildPlugins = linkedMapOf(
+            "kotlin" to versionFor("kotlin"),
+            "spring-boot" to versionFor("spring-boot"),
+            "spring-dependency-management" to versionFor("spring-dependency-management"),
+        ).entries.joinToString(prefix = "{", postfix = "}") { (name, version) ->
+            "${name.asJsonString()}: ${version.asJsonString()}"
         }
 
         println(
             """
             {
-              "group": "${releaseGroup.jsonEscape()}",
-              "githubPackagesUrl": "${githubPackagesUrl.jsonEscape()}",
+              "schemaVersion": 2,
+              "group": ${releaseGroup.asJsonString()},
+              "githubPackagesUrl": ${githubPackagesUrl.asJsonString()},
+              "releaseChannel": ${releaseChannel.asJsonString()},
+              "buildPlugins": $buildPlugins,
               "modules": [
             $modulesJson
               ]
             }
-            """.trimIndent()
+            """.trimIndent(),
         )
     }
 }

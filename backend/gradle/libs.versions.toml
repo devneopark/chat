@@ -5,17 +5,28 @@ spring-boot = "4.0.6"
 spring-dependency-management = "1.1.7"
 
 # Internal module versions
-domain-admission-slot-reference = "0.0.1-SNAPSHOT"
-domain-room-model = "0.0.1-SNAPSHOT"
-domain-room-reference = "0.0.1-SNAPSHOT"
-domain-room-service = "0.0.1-SNAPSHOT"
-domain-user-model = "0.0.1-SNAPSHOT"
-domain-user-reference = "0.0.1-SNAPSHOT"
-domain-user-service = "0.0.1-SNAPSHOT"
-messaging-gateway = "0.0.1-SNAPSHOT"
-rest-api = "0.0.1-SNAPSHOT"
-shared-domain-exception = "0.0.1-SNAPSHOT"
-shared-kernel = "0.0.1-SNAPSHOT"
+backend-domain-admission-slot-reference = "0.0.1"
+backend-domain-room-model = "0.0.1"
+backend-domain-room-reference = "0.0.1"
+backend-domain-room-service = "0.0.1"
+backend-domain-user-model = "0.0.1"
+backend-domain-user-reference = "0.0.1"
+backend-domain-user-service = "0.0.1"
+backend-messaging-gateway = "0.0.1"
+backend-rest-api = "0.0.1"
+backend-shared-domain-exception = "0.0.1"
+backend-shared-kernel = "0.0.1"
+
+[libraries]
+backend-domain-admission-slot-reference = { module = "com.devneopark.chat.backend:domain-admission-slot-reference", version.ref = "backend-domain-admission-slot-reference" }
+backend-domain-room-model = { module = "com.devneopark.chat.backend:domain-room-model", version.ref = "backend-domain-room-model" }
+backend-domain-room-reference = { module = "com.devneopark.chat.backend:domain-room-reference", version.ref = "backend-domain-room-reference" }
+backend-domain-room-service = { module = "com.devneopark.chat.backend:domain-room-service", version.ref = "backend-domain-room-service" }
+backend-domain-user-model = { module = "com.devneopark.chat.backend:domain-user-model", version.ref = "backend-domain-user-model" }
+backend-domain-user-reference = { module = "com.devneopark.chat.backend:domain-user-reference", version.ref = "backend-domain-user-reference" }
+backend-domain-user-service = { module = "com.devneopark.chat.backend:domain-user-service", version.ref = "backend-domain-user-service" }
+backend-shared-domain-exception = { module = "com.devneopark.chat.backend:shared-domain-exception", version.ref = "backend-shared-domain-exception" }
+backend-shared-kernel = { module = "com.devneopark.chat.backend:shared-kernel", version.ref = "backend-shared-kernel" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

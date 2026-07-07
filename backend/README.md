@@ -86,10 +86,10 @@ modules/
 
 ```shell
 # user 도메인 모델 모듈 빌드
-./gradlew :modules:libs:domains:user:model:build
+./gradlew :libs:domain-user-model:build
 
 # rest-api 서비스 모듈 빌드
-./gradlew :modules:services:rest-api:build
+./gradlew :services:rest-api:build
 ```
 
 ## 6. 버전, 의존성, 배포 전략
@@ -112,45 +112,47 @@ release/*    stable 승격 준비
 hotfix/*     stable 긴급 수정
 ```
 
-`feature/*` 브랜치는 `develop`으로 병합하고, `release/*` 브랜치는 `main`으로 병합합니다.
-`develop`에서는 `x.y.z-SNAPSHOT` 버전을 사용하고, `main`으로 들어가는 릴리즈 대상 모듈은 `x.y.z` stable 버전을 사용합니다.
+`feature/*` 브랜치는 `develop`으로 병합하고, 릴리즈 대상 변경은 최종적으로 `main`에 병합합니다.
+PR과 `develop`에서는 `x.y.z-SNAPSHOT`, `main`에서는 `x.y.z` stable 버전을 사용합니다.
 
 ### 6.2. 버전 카탈로그와 내부 모듈 의존성
 
 Gradle version catalog인 `gradle/libs.versions.toml`에서는 빌드 플러그인 버전과
-각 배포 대상 모듈 자체의 버전을 관리합니다.
+각 배포 대상 모듈의 suffix 없는 base 버전과 내부 Maven 좌표를 관리합니다.
 
 ```toml
 [versions]
-shared-kernel = "0.0.1-SNAPSHOT"
-shared-domain-exception = "0.0.1-SNAPSHOT"
-domain-user-model = "0.0.1-SNAPSHOT"
+backend-shared-kernel = "0.0.1"
+backend-shared-domain-exception = "0.0.1"
+
+[libraries]
+backend-shared-kernel = { module = "com.devneopark.chat.backend:shared-kernel", version.ref = "backend-shared-kernel" }
 ```
 
 모듈이 다른 내부 모듈을 의존할 때는 `project(":modules:...")` 의존성을 기본으로 사용하지 않습니다.
-각 소비 모듈의 빌드 파일에서 이미 GitHub Packages에 배포된 Maven artifact의 좌표와 버전을 명시합니다.
-의존성 버전은 해당 소비 모듈이 검증한 버전으로 고정하며, 배포 대상 모듈 자체의 버전과 독립적으로 관리합니다.
+소비 모듈은 version catalog alias로 GitHub Packages Maven artifact를 참조합니다.
 
 ```kotlin
 dependencies {
-    implementation("com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT")
-    implementation("com.devneopark.chat:domain-user-model:0.0.1-SNAPSHOT")
+    implementation(libs.backend.shared.kernel)
 }
 ```
 
-PR CI와 배포 workflow는 모두 GitHub Packages에 배포된 Maven 좌표만 resolve합니다.
-따라서 upstream 모듈을 먼저 배포한 뒤 downstream 모듈의 변경을 검증하고 배포합니다.
+로컬 개발과 배포 workflow는 원격 GitHub Packages를 사용합니다.
+PR 검증에서만 `-PuseLocalModules=true`를 사용해 내부 Maven 좌표를 현재 checkout 모듈로 치환합니다.
+이를 통해 upstream 변경과 downstream 호환성을 merge 전에 검증합니다.
 
 ### 6.3. 버전 정책
 
-허용하는 버전 형식은 두 가지입니다.
+catalog에는 다음 형식만 허용합니다.
 
 ```text
-x.y.z-SNAPSHOT
 x.y.z
 ```
 
-`SNAPSHOT`은 변경 가능한 개발 버전입니다.
+Gradle은 `releaseChannel`에 따라 `-SNAPSHOT` suffix를 동적으로 적용합니다.
+
+`SNAPSHOT`은 변경 가능한 개발 버전이며,
 같은 SNAPSHOT 버전은 재배포할 수 있고, 실행 모듈의 prerelease asset도 교체할 수 있습니다.
 
 stable 버전은 불변 릴리즈입니다.
@@ -159,10 +161,10 @@ stable 릴리즈가 성공하면 해당 stable로 승격된 모듈의 직전 SNA
 
 ### 6.4. 모듈 좌표
 
-모든 배포 대상 모듈은 고정된 Maven 좌표를 가집니다.
+모든 라이브러리 모듈은 고정된 Maven 좌표를 가집니다.
 
 ```text
-group: com.devneopark.chat
+group: com.devneopark.chat.backend
 artifact: <module-artifact-name>
 version: <module-version>
 ```
@@ -170,11 +172,9 @@ version: <module-version>
 예시:
 
 ```text
-com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT
-com.devneopark.chat:shared-domain-exception:0.0.1-SNAPSHOT
-com.devneopark.chat:domain-user-model:0.0.1-SNAPSHOT
-com.devneopark.chat:rest-api:0.0.1-SNAPSHOT
-com.devneopark.chat:messaging-gateway:0.0.1-SNAPSHOT
+com.devneopark.chat.backend:shared-kernel:0.0.1-SNAPSHOT
+com.devneopark.chat.backend:shared-domain-exception:0.0.1-SNAPSHOT
+com.devneopark.chat.backend:domain-user-model:0.0.1-SNAPSHOT
 ```
 
 ### 6.5. Affected 전파
@@ -189,10 +189,16 @@ shared-kernel 변경
 => affected: shared-kernel, domain-user-model, rest-api
 ```
 
-배포는 내부 의존성 그래프를 위상 정렬해 upstream에서 downstream 순서로 진행합니다.
+검증과 배포는 내부 의존성 그래프를 위상 layer로 정렬해 upstream에서 downstream 순서로 진행합니다.
+같은 layer의 모듈은 병렬 실행하고 다음 layer는 이전 layer 전체 성공 후 시작합니다.
 의존성 cycle이 발견되면 workflow를 실패시킵니다.
 
+affected 모듈의 catalog 버전이 이미 게시된 stable 버전 이하이면 PR 검증을 실패시킵니다.
+
 ### 6.6. 배포 대상
+
+`settings.gradle.kts`는 다음 경로의 `build.gradle.kts`를 탐색해 모듈을 자동 등록합니다.
+신규 모듈은 디렉터리와 version catalog 항목을 함께 추가해야 하며, 누락·중복·고아 catalog 항목은 Gradle 설정 단계에서 실패합니다.
 
 라이브러리 모듈:
 
@@ -201,7 +207,7 @@ modules/libs/**
 ```
 
 - `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
-- 다른 모듈은 각 빌드 파일에 선언된 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
+- 다른 모듈은 version catalog에 선언된 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
 
 실행 모듈:
 
@@ -219,10 +225,10 @@ modules/services/messaging-gateway
 모듈별 독립 릴리즈를 전제로 태그에는 모듈 이름과 버전을 함께 포함합니다.
 
 ```text
-shared-kernel-v0.0.1-SNAPSHOT
-shared-kernel-v0.0.1
-rest-api-v0.0.1-SNAPSHOT
-rest-api-v0.0.1
+backend/libs/shared-kernel/v0.0.1-SNAPSHOT
+backend/libs/shared-kernel/v0.0.1
+backend/services/rest-api/v0.0.1-SNAPSHOT
+backend/services/rest-api/v0.0.1
 ```
 
 SNAPSHOT tag는 mutable 기준점입니다.
@@ -231,7 +237,7 @@ stable tag는 immutable 기준점입니다.
 ### 6.8. 인증과 Secret
 
 로컬 환경에는 GitHub token을 저장하지 않습니다.
-GitHub Repository Secrets를 사용합니다.
+GitHub Actions에서는 실행별 내장 `GITHUB_TOKEN`을 사용합니다.
 
 GitHub Actions 안에서 같은 repository의 tag, release, GitHub Packages를 다루는 작업은
 workflow에 명시한 `GITHUB_TOKEN` 권한을 사용합니다.
@@ -242,26 +248,12 @@ permissions:
   packages: write
 ```
 
-별도 repository secret은 bot commit, release PR 생성, next SNAPSHOT PR 생성처럼
-workflow가 branch/PR을 만들고 후속 workflow trigger가 필요한 자동화에 사용합니다.
-
-필요 secrets:
-
-```text
-GH_AUTOMATION_TOKEN
-```
-
-`GH_AUTOMATION_TOKEN`에는 private repository 기준으로 다음 권한이 필요합니다.
-
-```text
-repo
-```
-
 `GH_PACKAGES_USERNAME`은 로컬에서 직접 GitHub Packages에 publish할 때만 사용합니다.
 Actions 환경에서는 `github.actor`를 사용합니다.
 
-secret은 필요한 workflow step에만 주입합니다.
-`pull_request_target`은 사용하지 않고, fork PR에서는 secret이 필요한 step을 실행하지 않습니다.
+Workflow는 bot commit이나 장기 repository secret을 사용하지 않습니다.
+PR workflow는 `devneopark`이 같은 repository에서 생성한 PR에만 job을 실행하며,
+`pull_request_target`을 사용하지 않습니다.
 
 ### 6.9. 로컬 GitHub Packages 사용
 
@@ -271,20 +263,20 @@ IDE의 Gradle 실행 환경에 다음 환경변수를 주입해야 합니다.
 
 ```bash
 GH_PACKAGES_USERNAME=devneopark
-GH_AUTOMATION_TOKEN=<read:packages 권한이 있는 GitHub token>
+GITHUB_TOKEN=<read:packages 권한이 있는 GitHub token>
 ```
 
 루트 Gradle 설정은 다음 순서로 credential을 찾습니다.
 
 ```text
 username: githubPackagesUsername -> GH_PACKAGES_USERNAME -> GITHUB_ACTOR
-token: githubPackagesToken -> GH_AUTOMATION_TOKEN -> GITHUB_TOKEN
+token: githubPackagesToken -> GITHUB_TOKEN
 ```
 
 CLI에서 일시적으로 검증할 때는 다음처럼 실행할 수 있습니다.
 
 ```bash
-GH_PACKAGES_USERNAME=devneopark GH_AUTOMATION_TOKEN="$(gh auth token)" ./gradlew build
+GH_PACKAGES_USERNAME=devneopark GITHUB_TOKEN="$(gh auth token)" ./gradlew build
 ```
 
 ### 6.10. 실행 모듈 런타임 버전

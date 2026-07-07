@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Release workflow helper for backend modules."""
+"""Plan, validate, build, and publish backend release modules."""
 
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 import re
@@ -12,13 +14,31 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 
-SEMVER_RE = re.compile(r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?P<snapshot>-SNAPSHOT)?$")
-RELEASE_LABELS = {"release:patch", "release:minor", "release:major"}
+SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SNAPSHOT_SUFFIX = "-SNAPSHOT"
+ROOT_AFFECTS_ALL = {
+    "build.gradle.kts",
+    "gradle.properties",
+    "gradlew",
+    "gradlew.bat",
+}
+ROOT_AFFECTING_PREFIXES = ("gradle/wrapper/",)
+IGNORED_PREFIXES = ("README.md", "docs/", "tools/release/")
+
+
+@dataclass(frozen=True)
+class Dependency:
+    path: str
+    artifact_id: str
+    requested_version: str
+    effective_version: str
+    registered: bool
 
 
 @dataclass(frozen=True)
@@ -27,173 +47,75 @@ class Module:
     project_dir: str
     artifact_id: str
     version_alias: str
+    base_version: str
     version: str
     type: str
-    dependencies: tuple[str, ...]
+    tag_namespace: str
+    dependencies: tuple[Dependency, ...]
+    external_dependencies: tuple[str, ...]
+
+    @property
+    def snapshot_version(self) -> str:
+        return f"{self.base_version}{SNAPSHOT_SUFFIX}"
+
+    @property
+    def snapshot_tag(self) -> str:
+        return f"{self.tag_namespace}/{self.artifact_id}/v{self.snapshot_version}"
+
+    @property
+    def stable_tag_prefix(self) -> str:
+        return f"{self.tag_namespace}/{self.artifact_id}/v"
 
 
-def run(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+@dataclass(frozen=True)
+class Graph:
+    group: str
+    build_plugins: tuple[tuple[str, str], ...]
+    modules: tuple[Module, ...]
 
 
-def git_output(args: list[str]) -> str:
-    return run(["git", *args]).stdout.strip()
+def run(
+    command: list[str],
+    *,
+    check: bool = True,
+    cwd: Path | None = None,
+    capture: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    print("+ " + " ".join(command), flush=True)
+    return subprocess.run(
+        command,
+        check=check,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.PIPE if capture else None,
+    )
 
 
-def current_repo_prefix() -> str:
-    git_root = Path(git_output(["rev-parse", "--show-toplevel"])).resolve()
-    cwd = Path.cwd().resolve()
-    try:
-        relative = cwd.relative_to(git_root)
-    except ValueError:
-        return ""
-    if str(relative) == ".":
-        return ""
-    return relative.as_posix().rstrip("/") + "/"
+def git_output(args: list[str], *, check: bool = True) -> str:
+    result = run(["git", *args], check=check)
+    return result.stdout.strip()
 
 
-def normalize_git_path(path: str, repo_prefix: str) -> str | None:
-    normalized = path.strip().replace("\\", "/")
-    if not normalized:
-        return None
-    if repo_prefix and normalized.startswith(repo_prefix):
-        return normalized[len(repo_prefix) :]
-    if repo_prefix:
-        return None
-    return normalized
-
-
-def load_graph(path: Path) -> tuple[str, list[Module]]:
-    data = json.loads(path.read_text())
-    modules = []
-    for item in data["modules"]:
-        modules.append(
-            Module(
-                path=item["path"],
-                project_dir=item["projectDir"].rstrip("/"),
-                artifact_id=item["artifactId"],
-                version_alias=item["versionAlias"],
-                version=item["version"],
-                type=item["type"],
-                dependencies=tuple(dependency["path"] for dependency in item.get("dependencies", [])),
-            )
+def github_annotation(level: str, title: str, message: str) -> None:
+    def escape(value: str) -> str:
+        return (
+            value.replace("%", "%25")
+            .replace("\r", "%0D")
+            .replace("\n", "%0A")
+            .replace(":", "%3A")
+            .replace(",", "%2C")
         )
-    return data["group"], modules
+
+    print(f"::{level} title={escape(title)}::{escape(message)}")
 
 
-def module_maps(modules: list[Module]) -> tuple[dict[str, Module], dict[str, Module]]:
-    by_path = {module.path: module for module in modules}
-    by_artifact = {module.artifact_id: module for module in modules}
-    return by_path, by_artifact
-
-
-def changed_files(base: str, head: str, repo_prefix: str) -> list[str]:
-    output = git_output(["diff", "--name-only", f"{base}..{head}"])
-    result: list[str] = []
-    for line in output.splitlines():
-        normalized = normalize_git_path(line, repo_prefix)
-        if normalized is not None:
-            result.append(normalized)
-    return result
-
-
-def latest_stable_tag(artifact_id: str) -> str | None:
-    output = run(["git", "tag", "--list", f"{artifact_id}-v[0-9]*"], check=False).stdout
-    candidates: list[tuple[tuple[int, int, int], str]] = []
-    for tag in output.splitlines():
-        version = tag.removeprefix(f"{artifact_id}-v")
-        match = SEMVER_RE.match(version)
-        if not match or match.group("snapshot"):
-            continue
-        candidates.append(((int(match.group("major")), int(match.group("minor")), int(match.group("patch"))), tag))
-    if not candidates:
-        return None
-    return sorted(candidates)[-1][1]
-
-
-def classify_changed_files(files: list[str], modules: list[Module]) -> tuple[set[str], bool]:
-    root_affects_all = {
-        "build.gradle.kts",
-        "settings.gradle.kts",
-        "gradle/libs.versions.toml",
-        "gradlew",
-        "gradlew.bat",
-    }
-    root_affecting_prefixes = ("gradle/wrapper/",)
-    docs_prefixes = ("README.md", "docs/")
-    workflow_prefixes = (".github/workflows/", "tools/release/")
-
-    direct: set[str] = set()
-    all_modules = False
-    sorted_modules = sorted(modules, key=lambda module: len(module.project_dir), reverse=True)
-
-    for file_path in files:
-        if file_path in root_affects_all or file_path.startswith(root_affecting_prefixes):
-            all_modules = True
-            continue
-        if file_path.startswith(docs_prefixes) or file_path.startswith(workflow_prefixes):
-            continue
-        for module in sorted_modules:
-            if file_path == module.project_dir or file_path.startswith(module.project_dir + "/"):
-                direct.add(module.path)
-                break
-    return direct, all_modules
-
-
-def reverse_closure(direct: set[str], modules: list[Module]) -> set[str]:
-    reverse: dict[str, set[str]] = {module.path: set() for module in modules}
-    for module in modules:
-        for dependency in module.dependencies:
-            reverse.setdefault(dependency, set()).add(module.path)
-
-    affected = set(direct)
-    queue = list(direct)
-    while queue:
-        current = queue.pop(0)
-        for consumer in reverse.get(current, set()):
-            if consumer not in affected:
-                affected.add(consumer)
-                queue.append(consumer)
-    return affected
-
-
-def topo_sort(affected: set[str], modules: list[Module]) -> list[str]:
-    by_path, _ = module_maps(modules)
-    visiting: set[str] = set()
-    visited: set[str] = set()
-    ordered: list[str] = []
-
-    def visit(path: str) -> None:
-        if path in visited:
-            return
-        if path in visiting:
-            raise SystemExit(f"Dependency cycle detected around {path}")
-        visiting.add(path)
-        for dependency in by_path[path].dependencies:
-            if dependency in affected:
-                visit(dependency)
-        visiting.remove(path)
-        visited.add(path)
-        ordered.append(path)
-
-    for path in sorted(affected):
-        visit(path)
-    return ordered
-
-
-def module_payload(modules: list[Module], paths: list[str]) -> list[dict[str, str]]:
-    by_path, _ = module_maps(modules)
-    return [
-        {
-            "path": by_path[path].path,
-            "projectDir": by_path[path].project_dir,
-            "artifactId": by_path[path].artifact_id,
-            "versionAlias": by_path[path].version_alias,
-            "version": by_path[path].version,
-            "type": by_path[path].type,
-        }
-        for path in paths
-    ]
+def write_summary(lines: Iterable[str]) -> None:
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    with Path(summary_path).open("a") as summary:
+        summary.write("\n".join(lines) + "\n")
 
 
 def write_github_output(values: dict[str, str]) -> None:
@@ -205,218 +127,481 @@ def write_github_output(values: dict[str, str]) -> None:
             output.write(f"{key}={value}\n")
 
 
-def detect_affected(args: argparse.Namespace) -> None:
-    _, modules = load_graph(Path(args.graph))
-    repo_prefix = current_repo_prefix()
-
-    if args.stable:
-        all_direct: set[str] = set()
-        all_modules = False
-        if args.base:
-            direct, root_all = classify_changed_files(changed_files(args.base, args.head, repo_prefix), modules)
-            all_direct.update(direct)
-            all_modules = all_modules or root_all
-        for module in modules:
-            tag = latest_stable_tag(module.artifact_id)
-            if tag is None:
-                all_direct.add(module.path)
-                continue
-            module_files = changed_files(tag, args.head, repo_prefix)
-            direct, root_all = classify_changed_files(module_files, [module])
-            if root_all:
-                all_modules = True
-            if direct:
-                all_direct.add(module.path)
-        direct_paths = {module.path for module in modules} if all_modules else all_direct
-    else:
-        if not args.base:
-            raise SystemExit("--base is required unless --stable is used")
-        files = changed_files(args.base, args.head, repo_prefix)
-        direct, all_modules = classify_changed_files(files, modules)
-        direct_paths = {module.path for module in modules} if all_modules else direct
-
-    affected = reverse_closure(direct_paths, modules)
-    ordered_paths = topo_sort(affected, modules)
-    direct_ordered = topo_sort(direct_paths, modules) if direct_paths else []
-    payload = {
-        "direct": module_payload(modules, direct_ordered),
-        "affected": module_payload(modules, ordered_paths),
-    }
-    output = json.dumps(payload, ensure_ascii=False, indent=2)
-    if args.output:
-        Path(args.output).write_text(output + "\n")
-    else:
-        print(output)
-
-    compact_affected = json.dumps(payload["affected"], ensure_ascii=False, separators=(",", ":"))
-    write_github_output(
-        {
-            "has_affected": "true" if ordered_paths else "false",
-            "affected_json": compact_affected,
-            "affected_paths": " ".join(ordered_paths),
-            "affected_artifacts": " ".join(item["artifactId"] for item in payload["affected"]),
-        }
-    )
-
-
-def parse_release_level(labels_json: str) -> str:
-    try:
-        labels = set(json.loads(labels_json))
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"Invalid labels JSON: {exc}") from exc
-    release_labels = labels & RELEASE_LABELS
-    if len(release_labels) > 1:
-        raise SystemExit(f"Multiple release labels are not allowed: {sorted(release_labels)}")
-    if not release_labels:
-        return "patch"
-    return next(iter(release_labels)).split(":", 1)[1]
-
-
-def parse_version(version: str) -> tuple[int, int, int, bool]:
-    match = SEMVER_RE.match(version)
-    if not match:
-        raise SystemExit(f"Unsupported version: {version}")
-    return (
-        int(match.group("major")),
-        int(match.group("minor")),
-        int(match.group("patch")),
-        bool(match.group("snapshot")),
-    )
-
-
-def bump_version(version: str, level: str) -> str:
-    major, minor, patch, snapshot = parse_version(version)
-    if level == "major":
-        major, minor, patch = major + 1, 0, 0
-    elif level == "minor":
-        minor, patch = minor + 1, 0
-    elif level == "patch":
-        if not snapshot:
-            patch += 1
-    else:
-        raise SystemExit(f"Unsupported release level: {level}")
-    return f"{major}.{minor}.{patch}-SNAPSHOT"
+def parse_base_version(version: str) -> str:
+    base = version.removesuffix(SNAPSHOT_SUFFIX)
+    if not SEMVER_RE.fullmatch(base):
+        raise SystemExit(f"Unsupported backend module version: {version}")
+    return base
 
 
 def version_key(version: str) -> tuple[int, int, int]:
-    major, minor, patch, _ = parse_version(version)
-    return major, minor, patch
+    match = SEMVER_RE.fullmatch(version)
+    if not match:
+        raise SystemExit(f"Unsupported stable version: {version}")
+    return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
 
 
-def update_versions(version_file: Path, replacements: dict[str, str]) -> bool:
-    original = version_file.read_text()
-    updated = original
-    for alias, version in replacements.items():
-        pattern = re.compile(rf'^({re.escape(alias)}\s*=\s*")[^"]+(".*)$', re.MULTILINE)
-        updated, count = pattern.subn(rf'\g<1>{version}\2', updated)
-        if count != 1:
-            raise SystemExit(f"Version alias not found or duplicated in {version_file}: {alias}")
-    if updated != original:
-        version_file.write_text(updated)
-        return True
-    return False
+def default_tag_namespace(module_type: str) -> str:
+    return "backend/libs" if module_type == "library" else "backend/services"
 
 
-def load_affected(path: Path) -> tuple[list[dict[str, str]], set[str]]:
+def load_graph(path: Path) -> Graph:
     data = json.loads(path.read_text())
-    affected = data.get("affected", [])
-    direct = {item["path"] for item in data.get("direct", [])}
-    return affected, direct
-
-
-def bump_snapshots(args: argparse.Namespace) -> None:
-    affected, direct_paths = load_affected(Path(args.affected))
-    direct_level = parse_release_level(args.labels_json)
-    replacements: dict[str, str] = {}
-    for module in affected:
-        level = direct_level if module["path"] in direct_paths else "patch"
-        current = module["version"]
-        candidate = bump_version(current, level)
-        if current.endswith("-SNAPSHOT") and version_key(current) >= version_key(candidate):
-            continue
-        replacements[module["versionAlias"]] = candidate
-
-    changed = update_versions(Path(args.version_file), replacements)
-    write_github_output({"changed": "true" if changed else "false"})
-    if replacements:
-        print(json.dumps(replacements, ensure_ascii=False, indent=2))
-
-
-def promote_stable(args: argparse.Namespace) -> None:
-    affected, _ = load_affected(Path(args.affected))
-    replacements: dict[str, str] = {}
-    for module in affected:
-        version = module["version"]
-        if not version.endswith("-SNAPSHOT"):
-            continue
-        replacements[module["versionAlias"]] = version.removesuffix("-SNAPSHOT")
-    update_versions(Path(args.version_file), replacements)
-    if replacements:
-        print(json.dumps(replacements, ensure_ascii=False, indent=2))
-
-
-def next_snapshots(args: argparse.Namespace) -> None:
-    affected, _ = load_affected(Path(args.affected))
-    replacements: dict[str, str] = {}
-    for module in affected:
-        version = module["version"]
-        if version.endswith("-SNAPSHOT"):
-            continue
-        replacements[module["versionAlias"]] = bump_version(version, "patch")
-    update_versions(Path(args.version_file), replacements)
-    if replacements:
-        print(json.dumps(replacements, ensure_ascii=False, indent=2))
-
-
-def assert_versions(args: argparse.Namespace) -> None:
-    affected, _ = load_affected(Path(args.affected))
-    expected_snapshot = args.require == "snapshot"
-    invalid = [
-        f"{module['artifactId']}={module['version']}"
-        for module in affected
-        if module["version"].endswith("-SNAPSHOT") != expected_snapshot
-    ]
-    if invalid:
-        raise SystemExit(f"Unexpected module versions for {args.require}: {', '.join(invalid)}")
-
-
-def snapshot_notes(args: argparse.Namespace) -> None:
-    existing = Path(args.existing_body).read_text() if args.existing_body and Path(args.existing_body).exists() else ""
-    modules = json.loads(args.modules_json)
-    assets = json.loads(args.assets_json) if args.assets_json else []
-    history_lines = []
-    if "## History" in existing:
-        history_lines = existing.split("## History", 1)[1].strip().splitlines()
-    latest_history = f"- {args.published_at} {args.commit} {args.run_url}"
-    history = [latest_history, *[line for line in history_lines if line.strip() and line.strip() != latest_history]][:20]
-
-    module_lines = [
-        f"  - {module['artifactId']}: {args.group}:{module['artifactId']}:{module['version']}"
-        for module in modules
-    ]
-    asset_lines = [
-        f"  - {asset['name']}\n    sha256: {asset['sha256']}"
-        for asset in assets
-    ]
-    body = "\n".join(
-        [
-            "## Latest SNAPSHOT",
-            f"- Version: {args.version}",
-            f"- Commit: {args.commit}",
-            f"- Branch: {args.branch}",
-            f"- Workflow run: {args.run_url}",
-            f"- Published at: {args.published_at}",
-            "- Modules:",
-            *module_lines,
-            "- Assets:",
-            *(asset_lines or ["  - none"]),
-            "",
-            "## History",
-            *history,
-            "",
-        ]
+    modules: list[Module] = []
+    for item in data.get("modules", []):
+        module_type = item["type"]
+        version = item["version"]
+        dependencies = tuple(
+            Dependency(
+                path=dependency.get("path", ""),
+                artifact_id=dependency["artifactId"],
+                requested_version=dependency.get("requestedVersion", ""),
+                effective_version=dependency.get("effectiveVersion", ""),
+                registered=dependency.get("registered", True),
+            )
+            for dependency in item.get("dependencies", [])
+        )
+        modules.append(
+            Module(
+                path=item["path"],
+                project_dir=item["projectDir"].rstrip("/"),
+                artifact_id=item["artifactId"],
+                version_alias=item["versionAlias"],
+                base_version=item.get("baseVersion", parse_base_version(version)),
+                version=version,
+                type=module_type,
+                tag_namespace=item.get("tagNamespace", default_tag_namespace(module_type)),
+                dependencies=dependencies,
+                external_dependencies=tuple(sorted(item.get("externalDependencies", []))),
+            )
+        )
+    return Graph(
+        group=data.get("group", ""),
+        build_plugins=tuple(sorted(data.get("buildPlugins", {}).items())),
+        modules=tuple(sorted(modules, key=lambda module: module.path)),
     )
-    Path(args.output).write_text(body)
+
+
+def module_payload(module: Module) -> dict[str, Any]:
+    return {
+        "path": module.path,
+        "projectDir": module.project_dir,
+        "artifactId": module.artifact_id,
+        "versionAlias": module.version_alias,
+        "baseVersion": module.base_version,
+        "version": module.version,
+        "type": module.type,
+        "tagNamespace": module.tag_namespace,
+        "dependencies": [
+            {
+                "path": dependency.path,
+                "artifactId": dependency.artifact_id,
+                "requestedVersion": dependency.requested_version,
+                "effectiveVersion": dependency.effective_version,
+                "registered": dependency.registered,
+            }
+            for dependency in module.dependencies
+        ],
+        "externalDependencies": list(module.external_dependencies),
+    }
+
+
+def module_build_inputs(module: Module) -> tuple[Any, ...]:
+    return (
+        module.project_dir,
+        module.artifact_id,
+        module.version_alias,
+        module.base_version,
+        module.type,
+        tuple(
+            sorted(
+                (
+                    dependency.path,
+                    dependency.artifact_id,
+                    dependency.requested_version,
+                    dependency.registered,
+                )
+                for dependency in module.dependencies
+            )
+        ),
+        module.external_dependencies,
+    )
+
+
+def current_repo_prefix() -> str:
+    git_root = Path(git_output(["rev-parse", "--show-toplevel"])).resolve()
+    cwd = Path.cwd().resolve()
+    try:
+        relative = cwd.relative_to(git_root)
+    except ValueError:
+        return ""
+    return "" if str(relative) == "." else relative.as_posix().rstrip("/") + "/"
+
+
+def changed_files(base: str, head: str, repo_prefix: str) -> list[str]:
+    output = git_output(["diff", "--name-only", f"{base}..{head}"])
+    files: list[str] = []
+    for line in output.splitlines():
+        normalized = line.strip().replace("\\", "/")
+        if not normalized:
+            continue
+        if repo_prefix:
+            if not normalized.startswith(repo_prefix):
+                continue
+            normalized = normalized[len(repo_prefix) :]
+        files.append(normalized)
+    return files
+
+
+def find_containing_module(file_path: str, modules: Iterable[Module]) -> Module | None:
+    for module in sorted(modules, key=lambda item: len(item.project_dir), reverse=True):
+        if file_path == module.project_dir or file_path.startswith(module.project_dir + "/"):
+            return module
+    return None
+
+
+def reverse_closure(direct: set[str], modules: Iterable[Module]) -> set[str]:
+    reverse: dict[str, set[str]] = {}
+    for module in modules:
+        reverse.setdefault(module.path, set())
+        for dependency in module.dependencies:
+            if dependency.registered and dependency.path:
+                reverse.setdefault(dependency.path, set()).add(module.path)
+
+    affected = set(direct)
+    queue = sorted(direct)
+    while queue:
+        current = queue.pop(0)
+        for consumer in sorted(reverse.get(current, set())):
+            if consumer not in affected:
+                affected.add(consumer)
+                queue.append(consumer)
+    return affected
+
+
+def dependency_layers(affected: set[str], modules: Iterable[Module]) -> list[list[str]]:
+    by_path = {module.path: module for module in modules}
+    remaining = set(affected)
+    layers: list[list[str]] = []
+    completed: set[str] = set()
+
+    while remaining:
+        ready = sorted(
+            path
+            for path in remaining
+            if all(
+                dependency.path not in affected or dependency.path in completed
+                for dependency in by_path[path].dependencies
+                if dependency.registered
+            )
+        )
+        if not ready:
+            cycle = ", ".join(sorted(remaining))
+            raise SystemExit(f"Dependency cycle detected among affected modules: {cycle}")
+        layers.append(ready)
+        completed.update(ready)
+        remaining.difference_update(ready)
+    return layers
+
+
+def latest_stable_tag(module: Module) -> tuple[str, str] | None:
+    output = git_output(["tag", "--list", f"{module.stable_tag_prefix}*"], check=False)
+    candidates: list[tuple[tuple[int, int, int], str, str]] = []
+    for tag in output.splitlines():
+        version = tag.removeprefix(module.stable_tag_prefix)
+        if version.endswith(SNAPSHOT_SUFFIX) or not SEMVER_RE.fullmatch(version):
+            continue
+        candidates.append((version_key(version), version, tag))
+    if not candidates:
+        return None
+    _, version, tag = sorted(candidates)[-1]
+    return version, tag
+
+
+def validate_registered_dependencies(modules: Iterable[Module]) -> list[str]:
+    errors: list[str] = []
+    for module in modules:
+        for dependency in module.dependencies:
+            if not dependency.registered or not dependency.path:
+                errors.append(
+                    f"{module.artifact_id} references unregistered backend artifact "
+                    f"{dependency.artifact_id}"
+                )
+    return errors
+
+
+def validate_versions(modules: Iterable[Module], *, resumable_sha: str | None = None) -> list[str]:
+    errors: list[str] = []
+    summary_rows = [
+        "## Backend stable version validation",
+        "",
+        "| Module | Catalog | Latest stable | Result |",
+        "|---|---:|---:|---|",
+    ]
+    for module in sorted(modules, key=lambda item: item.artifact_id):
+        latest = latest_stable_tag(module)
+        if latest is None:
+            summary_rows.append(f"| `{module.artifact_id}` | `{module.base_version}` | none | pass |")
+            continue
+        latest_version, latest_tag = latest
+        if version_key(module.base_version) <= version_key(latest_version):
+            tag_sha = (
+                git_output(["rev-list", "-n", "1", latest_tag], check=False)
+                if resumable_sha
+                else ""
+            )
+            if (
+                resumable_sha
+                and module.base_version == latest_version
+                and tag_sha == resumable_sha
+            ):
+                summary_rows.append(
+                    f"| `{module.artifact_id}` | `{module.base_version}` | `{latest_version}` | resume |"
+                )
+                continue
+            message = (
+                f"{module.artifact_id}: catalog version {module.base_version} must be greater than "
+                f"published stable {latest_version} ({latest_tag}). "
+                "Increase backend/gradle/libs.versions.toml."
+            )
+            errors.append(message)
+            github_annotation("error", "Backend stable version collision", message)
+            summary_rows.append(
+                f"| `{module.artifact_id}` | `{module.base_version}` | `{latest_version}` | **fail** |"
+            )
+        else:
+            summary_rows.append(
+                f"| `{module.artifact_id}` | `{module.base_version}` | `{latest_version}` | pass |"
+            )
+    write_summary(summary_rows + [""])
+    return errors
+
+
+def build_plan(
+    base_graph: Graph,
+    head_graph: Graph,
+    files: list[str],
+    *,
+    resumable_sha: str | None = None,
+) -> dict[str, Any]:
+    base_by_artifact = {module.artifact_id: module for module in base_graph.modules}
+    head_by_artifact = {module.artifact_id: module for module in head_graph.modules}
+    head_by_path = {module.path: module for module in head_graph.modules}
+    added_artifacts = set(head_by_artifact) - set(base_by_artifact)
+    deleted_artifacts = set(base_by_artifact) - set(head_by_artifact)
+    direct = {head_by_artifact[artifact].path for artifact in added_artifacts}
+    reasons: dict[str, set[str]] = {path: {"module-added"} for path in direct}
+
+    def mark(path: str, reason: str) -> None:
+        direct.add(path)
+        reasons.setdefault(path, set()).add(reason)
+
+    common_artifacts = set(base_by_artifact) & set(head_by_artifact)
+    for artifact_id in common_artifacts:
+        base_module = base_by_artifact[artifact_id]
+        head_module = head_by_artifact[artifact_id]
+        if module_build_inputs(base_module) != module_build_inputs(head_module):
+            mark(head_module.path, "effective-build-input-changed")
+
+    if base_graph.build_plugins != head_graph.build_plugins:
+        for path in head_by_path:
+            mark(path, "common-build-plugin-changed")
+
+    affects_all = False
+    for file_path in files:
+        if file_path in ROOT_AFFECTS_ALL or file_path.startswith(ROOT_AFFECTING_PREFIXES):
+            affects_all = True
+            continue
+        if file_path == "settings.gradle.kts" or file_path == "gradle/libs.versions.toml":
+            continue
+        if file_path.startswith(IGNORED_PREFIXES):
+            continue
+        module = find_containing_module(file_path, head_graph.modules)
+        if module:
+            mark(module.path, f"file-changed:{file_path}")
+
+    if affects_all:
+        for path in head_by_path:
+            mark(path, "common-gradle-input-changed")
+
+    affected = reverse_closure(direct, head_graph.modules)
+    layers = dependency_layers(affected, head_graph.modules)
+    registered_errors = validate_registered_dependencies(head_graph.modules)
+    if registered_errors:
+        for error in registered_errors:
+            github_annotation("error", "Unregistered backend dependency", error)
+        raise SystemExit("\n".join(registered_errors))
+
+    affected_modules = [head_by_path[path] for path in sorted(affected)]
+    version_errors = validate_versions(affected_modules, resumable_sha=resumable_sha)
+    if version_errors:
+        raise SystemExit("\n".join(version_errors))
+
+    plan = {
+        "changedFiles": sorted(files),
+        "direct": [module_payload(head_by_path[path]) for path in sorted(direct)],
+        "affected": [module_payload(head_by_path[path]) for path in sorted(affected)],
+        "deleted": [module_payload(base_by_artifact[artifact]) for artifact in sorted(deleted_artifacts)],
+        "layers": [
+            [module_payload(head_by_path[path]) for path in layer]
+            for layer in layers
+        ],
+        "reasons": {path: sorted(values) for path, values in sorted(reasons.items())},
+    }
+    return plan
+
+
+def render_plan_summary(plan: dict[str, Any]) -> None:
+    lines = [
+        "## Backend release plan",
+        "",
+        f"- Direct modules: {len(plan['direct'])}",
+        f"- Affected modules: {len(plan['affected'])}",
+        f"- Deleted modules: {len(plan['deleted'])}",
+        f"- Dependency layers: {len(plan['layers'])}",
+        "",
+    ]
+    for index, layer in enumerate(plan["layers"]):
+        artifacts = ", ".join(f"`{module['artifactId']}`" for module in layer)
+        lines.append(f"- Layer {index}: {artifacts}")
+    if plan["deleted"]:
+        deleted = ", ".join(f"`{module['artifactId']}`" for module in plan["deleted"])
+        lines.extend(["", f"- Deleted: {deleted}"])
+    lines.append("")
+    write_summary(lines)
+
+
+def plan_command(args: argparse.Namespace) -> None:
+    base_graph = load_graph(Path(args.base_graph))
+    head_graph = load_graph(Path(args.head_graph))
+    files = changed_files(args.base, args.head, current_repo_prefix())
+    plan = build_plan(
+        base_graph,
+        head_graph,
+        files,
+        resumable_sha=args.allow_stable_at_head,
+    )
+    output = json.dumps(plan, ensure_ascii=False, indent=2) + "\n"
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.output).write_text(output)
+    render_plan_summary(plan)
+    write_github_output(
+        {
+            "has_affected": "true" if plan["affected"] else "false",
+            "has_deleted": "true" if plan["deleted"] else "false",
+            "has_work": "true" if plan["affected"] or plan["deleted"] else "false",
+            "affected_count": str(len(plan["affected"])),
+            "layer_count": str(len(plan["layers"])),
+        }
+    )
+    print(output, end="")
+
+
+def load_plan(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text())
+
+
+def gradle_layer(
+    gradlew: str,
+    modules: list[dict[str, Any]],
+    action: str,
+    *,
+    local_modules: bool,
+) -> None:
+    tasks: list[str] = []
+    for module in modules:
+        if action == "build":
+            task = "build"
+        elif module["type"] == "library":
+            task = "publish"
+        else:
+            task = "bootJar"
+        tasks.append(f"{module['path']}:{task}")
+    if not tasks:
+        return
+    command = [gradlew, "--parallel", "-PreleaseChannel=snapshot"]
+    if local_modules:
+        command.append("-PuseLocalModules=true")
+    command.extend(tasks)
+    run(command, capture=False)
+
+
+def build_command(args: argparse.Namespace) -> None:
+    plan = load_plan(Path(args.plan))
+    if not plan["affected"]:
+        print("No affected backend modules; build skipped.")
+        return
+    for index, layer in enumerate(plan["layers"]):
+        artifacts = ", ".join(module["artifactId"] for module in layer)
+        print(f"Building layer {index}: {artifacts}")
+        gradle_layer(args.gradlew, layer, "build", local_modules=True)
+
+
+def git_tag_snapshot(module: dict[str, Any], sha: str) -> str:
+    tag = f"{module['tagNamespace']}/{module['artifactId']}/v{module['version']}"
+    run(["git", "tag", "-f", tag, sha], capture=False)
+    run(["git", "push", "--force", "origin", f"refs/tags/{tag}"], capture=False)
+    return tag
+
+
+def publish_service_release(module: dict[str, Any], tag: str, sha: str) -> None:
+    jar = Path(module["projectDir"]) / "build" / "libs" / (
+        f"backend-{module['artifactId']}-{module['version']}.jar"
+    )
+    if not jar.is_file():
+        raise SystemExit(f"Service bootJar not found: {jar}")
+    digest = hashlib.sha256(jar.read_bytes()).hexdigest()
+    title = f"backend/services/{module['artifactId']} {module['version']}"
+    notes = Path("build") / f"release-notes-{module['artifactId']}.md"
+    notes.parent.mkdir(parents=True, exist_ok=True)
+    notes.write_text(
+        "\n".join(
+            [
+                "## Backend SNAPSHOT",
+                "",
+                f"- Module: `{module['artifactId']}`",
+                f"- Version: `{module['version']}`",
+                f"- Commit: `{sha}`",
+                f"- Asset SHA-256: `{digest}`",
+                f"- Workflow: `{os.environ.get('GITHUB_SERVER_URL', '')}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{os.environ.get('GITHUB_RUN_ID', '')}`",
+                "",
+            ]
+        )
+    )
+    existing = run(["gh", "release", "view", tag], check=False)
+    if existing.returncode == 0:
+        run(
+            [
+                "gh",
+                "release",
+                "edit",
+                tag,
+                "--prerelease",
+                "--title",
+                title,
+                "--notes-file",
+                str(notes),
+            ],
+            capture=False,
+        )
+        run(["gh", "release", "upload", tag, str(jar), "--clobber"], capture=False)
+    else:
+        run(
+            [
+                "gh",
+                "release",
+                "create",
+                tag,
+                str(jar),
+                "--verify-tag",
+                "--prerelease",
+                "--title",
+                title,
+                "--notes-file",
+                str(notes),
+            ],
+            capture=False,
+        )
 
 
 def github_api_json(url: str, token: str) -> Any:
@@ -443,97 +628,299 @@ def github_api_delete(url: str, token: str) -> None:
         },
     )
     try:
+        with urllib.request.urlopen(request):
+            return
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+
+
+def delete_maven_snapshot(module: dict[str, Any]) -> None:
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    owner = os.environ.get("GITHUB_REPOSITORY_OWNER")
+    if not token or not owner:
+        raise SystemExit("GITHUB_TOKEN and GITHUB_REPOSITORY_OWNER are required for Package cleanup")
+    package_names = [
+        f"com.devneopark.chat.backend:{module['artifactId']}",
+        f"com.devneopark.chat.backend.{module['artifactId']}",
+    ]
+    target_version = f"{module['baseVersion']}{SNAPSHOT_SUFFIX}"
+    for package_name in package_names:
+        package = urllib.parse.quote(package_name, safe="")
+        for owner_kind in ("users", "orgs"):
+            base_url = f"https://api.github.com/{owner_kind}/{owner}/packages/maven/{package}/versions"
+            try:
+                versions = github_api_json(f"{base_url}?per_page=100", token)
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    continue
+                raise
+            for version in versions:
+                if version.get("name") == target_version:
+                    github_api_delete(f"{base_url}/{version['id']}", token)
+                    print(f"Deleted Maven snapshot {package_name}:{target_version}")
+                    return
+            return
+    print(f"Maven snapshot already absent: {module['artifactId']}:{target_version}")
+
+
+def delete_snapshot_tag(tag: str) -> None:
+    result = run(["git", "ls-remote", "--exit-code", "--tags", "origin", f"refs/tags/{tag}"], check=False)
+    if result.returncode == 0:
+        run(["git", "push", "--delete", "origin", tag], capture=False)
+
+
+def cleanup_deleted_snapshot(module: dict[str, Any]) -> None:
+    version = f"{module['baseVersion']}{SNAPSHOT_SUFFIX}"
+    namespace = module.get("tagNamespace") or default_tag_namespace(module["type"])
+    tag = f"{namespace}/{module['artifactId']}/v{version}"
+    if module["type"] == "service":
+        run(["gh", "release", "delete", tag, "--yes", "--cleanup-tag"], check=False, capture=False)
+    else:
+        delete_maven_snapshot(module)
+    delete_snapshot_tag(tag)
+
+
+def stable_tag(module: dict[str, Any]) -> str:
+    return f"{module['tagNamespace']}/{module['artifactId']}/v{module['baseVersion']}"
+
+
+def remote_tag_sha(tag: str) -> str | None:
+    result = run(
+        ["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"],
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return result.stdout.split()[0]
+
+
+def preflight_stable_tags(modules: Iterable[dict[str, Any]], sha: str) -> None:
+    errors: list[str] = []
+    for module in modules:
+        tag = stable_tag(module)
+        existing_sha = remote_tag_sha(tag)
+        if existing_sha and existing_sha != sha:
+            errors.append(f"{tag} already points to {existing_sha}, expected {sha}")
+    if errors:
+        for error in errors:
+            github_annotation("error", "Stable tag conflict", error)
+        raise SystemExit("\n".join(errors))
+
+
+def maven_pom_commit(module: dict[str, Any]) -> str | None:
+    username = os.environ.get("GH_PACKAGES_USERNAME") or os.environ.get("GITHUB_ACTOR")
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    repository = os.environ.get("GITHUB_REPOSITORY", "devneopark/chat")
+    if not username or not token:
+        raise SystemExit("GH_PACKAGES_USERNAME and GITHUB_TOKEN are required for stable Package checks")
+    group_path = "com/devneopark/chat/backend"
+    artifact_id = module["artifactId"]
+    version = module["baseVersion"]
+    pom_url = (
+        f"https://maven.pkg.github.com/{repository}/{group_path}/{artifact_id}/"
+        f"{version}/{artifact_id}-{version}.pom"
+    )
+    credentials = base64.b64encode(f"{username}:{token}".encode()).decode()
+    request = urllib.request.Request(
+        pom_url,
+        headers={"Authorization": f"Basic {credentials}"},
+    )
+    try:
         with urllib.request.urlopen(request) as response:
-            if response.status not in {204, 404}:
-                raise SystemExit(f"Unexpected GitHub API delete status: {response.status}")
+            root = ElementTree.fromstring(response.read())
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            return
+            return None
         raise
+    commit = root.findtext(".//{*}properties/{*}release.commit")
+    if not commit:
+        raise SystemExit(
+            f"Stable Package exists without release.commit provenance: {artifact_id}:{version}"
+        )
+    return commit.strip()
 
 
-def delete_package_version(args: argparse.Namespace) -> None:
-    token = os.environ.get("GH_AUTOMATION_TOKEN") or os.environ.get("GH_TOKEN")
-    if not token:
-        raise SystemExit("GH_AUTOMATION_TOKEN or GH_TOKEN is required")
-    package = urllib.parse.quote(args.package_name, safe="")
-    base_urls = [
-        f"https://api.github.com/users/{args.owner}/packages/maven/{package}/versions",
-        f"https://api.github.com/orgs/{args.owner}/packages/maven/{package}/versions",
+def ensure_stable_tag(module: dict[str, Any], sha: str) -> str:
+    tag = stable_tag(module)
+    existing_sha = remote_tag_sha(tag)
+    if existing_sha is None:
+        run(["git", "tag", tag, sha], capture=False)
+        run(["git", "push", "origin", f"refs/tags/{tag}"], capture=False)
+    elif existing_sha != sha:
+        raise SystemExit(f"Stable tag conflict: {tag} points to {existing_sha}, expected {sha}")
+    return tag
+
+
+def stable_release_exists(tag: str) -> bool:
+    return run(["gh", "release", "view", tag], check=False).returncode == 0
+
+
+def create_stable_service_release(module: dict[str, Any], tag: str, sha: str) -> None:
+    if stable_release_exists(tag):
+        print(f"Stable service Release already exists: {tag}")
+        return
+    jar = Path(module["projectDir"]) / "build" / "libs" / (
+        f"backend-{module['artifactId']}-{module['baseVersion']}.jar"
+    )
+    if not jar.is_file():
+        raise SystemExit(f"Stable service bootJar not found: {jar}")
+    digest = hashlib.sha256(jar.read_bytes()).hexdigest()
+    title = f"backend/services/{module['artifactId']} {module['baseVersion']}"
+    notes = Path("build") / f"stable-release-notes-{module['artifactId']}.md"
+    notes.parent.mkdir(parents=True, exist_ok=True)
+    notes.write_text(
+        "\n".join(
+            [
+                "## Backend stable release",
+                "",
+                f"- Module: `{module['artifactId']}`",
+                f"- Version: `{module['baseVersion']}`",
+                f"- Commit: `{sha}`",
+                f"- Asset SHA-256: `{digest}`",
+                "",
+            ]
+        )
+    )
+    run(
+        [
+            "gh",
+            "release",
+            "create",
+            tag,
+            str(jar),
+            "--verify-tag",
+            "--title",
+            title,
+            "--notes-file",
+            str(notes),
+        ],
+        capture=False,
+    )
+
+
+def publish_stable_command(args: argparse.Namespace) -> None:
+    plan = load_plan(Path(args.plan))
+    sha = os.environ.get("GITHUB_SHA") or git_output(["rev-parse", "HEAD"])
+    preflight_stable_tags(plan["affected"], sha)
+    publish_rows = [
+        "## Backend stable publish",
+        "",
+        "| Module | Version | Result |",
+        "|---|---:|---|",
     ]
 
-    last_error: Exception | None = None
-    for base_url in base_urls:
-        try:
-            versions = github_api_json(base_url, token)
-        except urllib.error.HTTPError as exc:
-            last_error = exc
-            if exc.code == 404:
-                continue
-            raise
-        for version in versions:
-            if version.get("name") == args.version:
-                github_api_delete(f"{base_url}/{version['id']}", token)
-                print(f"Deleted package version {args.package_name}:{args.version}")
-                return
-        print(f"Package version not found: {args.package_name}:{args.version}")
-        return
-    if last_error:
-        raise SystemExit(f"Package not found: {args.package_name}") from last_error
-    raise SystemExit(f"Package not found: {args.package_name}")
+    for index, layer in enumerate(plan["layers"]):
+        pending: list[dict[str, Any]] = []
+        for module in layer:
+            tag = stable_tag(module)
+            if module["type"] == "library":
+                package_commit = maven_pom_commit(module)
+                if package_commit is None:
+                    pending.append(module)
+                elif package_commit == sha:
+                    ensure_stable_tag(module, sha)
+                    publish_rows.append(
+                        f"| `{module['artifactId']}` | `{module['baseVersion']}` | resumed |"
+                    )
+                else:
+                    raise SystemExit(
+                        f"Stable Package conflict: {module['artifactId']}:{module['baseVersion']} "
+                        f"was published from {package_commit}, expected {sha}"
+                    )
+            else:
+                existing_sha = remote_tag_sha(tag)
+                if existing_sha == sha and stable_release_exists(tag):
+                    publish_rows.append(
+                        f"| `{module['artifactId']}` | `{module['baseVersion']}` | resumed |"
+                    )
+                else:
+                    pending.append(module)
+
+        if pending:
+            artifacts = ", ".join(module["artifactId"] for module in pending)
+            print(f"Publishing stable layer {index}: {artifacts}")
+            tasks = [
+                f"{module['path']}:{'publish' if module['type'] == 'library' else 'bootJar'}"
+                for module in pending
+            ]
+            run(
+                [args.gradlew, "--parallel", "-PreleaseChannel=stable", *tasks],
+                capture=False,
+            )
+            for module in pending:
+                tag = ensure_stable_tag(module, sha)
+                if module["type"] == "service":
+                    create_stable_service_release(module, tag, sha)
+                publish_rows.append(
+                    f"| `{module['artifactId']}` | `{module['baseVersion']}` | published |"
+                )
+
+    for module in [*plan["affected"], *plan["deleted"]]:
+        cleanup_deleted_snapshot(module)
+
+    if not plan["affected"] and not plan["deleted"]:
+        print("No affected or deleted backend modules; stable publish skipped.")
+    write_summary(publish_rows + [""])
+
+
+def publish_snapshot_command(args: argparse.Namespace) -> None:
+    plan = load_plan(Path(args.plan))
+    sha = os.environ.get("GITHUB_SHA") or git_output(["rev-parse", "HEAD"])
+    publish_rows = [
+        "## Backend SNAPSHOT publish",
+        "",
+        "| Module | Version | Result |",
+        "|---|---:|---|",
+    ]
+    for index, layer in enumerate(plan["layers"]):
+        artifacts = ", ".join(module["artifactId"] for module in layer)
+        print(f"Publishing layer {index}: {artifacts}")
+        gradle_layer(args.gradlew, layer, "publish", local_modules=False)
+        for module in layer:
+            tag = git_tag_snapshot(module, sha)
+            if module["type"] == "service":
+                publish_service_release(module, tag, sha)
+            publish_rows.append(
+                f"| `{module['artifactId']}` | `{module['version']}` | published |"
+            )
+    for module in plan["deleted"]:
+        cleanup_deleted_snapshot(module)
+        publish_rows.append(
+            f"| `{module['artifactId']}` | `{module['baseVersion']}-SNAPSHOT` | deleted |"
+        )
+    if not plan["affected"] and not plan["deleted"]:
+        print("No affected or deleted backend modules; publish skipped.")
+    write_summary(publish_rows + [""])
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    detect = subparsers.add_parser("detect-affected")
-    detect.add_argument("--graph", required=True)
-    detect.add_argument("--base")
-    detect.add_argument("--head", required=True)
-    detect.add_argument("--stable", action="store_true")
-    detect.add_argument("--output")
-    detect.set_defaults(func=detect_affected)
+    plan_parser = subparsers.add_parser("plan")
+    plan_parser.add_argument("--base-graph", required=True)
+    plan_parser.add_argument("--head-graph", required=True)
+    plan_parser.add_argument("--base", required=True)
+    plan_parser.add_argument("--head", required=True)
+    plan_parser.add_argument("--output", required=True)
+    plan_parser.add_argument("--allow-stable-at-head")
+    plan_parser.set_defaults(func=plan_command)
 
-    bump = subparsers.add_parser("bump-snapshots")
-    bump.add_argument("--affected", required=True)
-    bump.add_argument("--labels-json", required=True)
-    bump.add_argument("--version-file", default="gradle/libs.versions.toml")
-    bump.set_defaults(func=bump_snapshots)
+    build_parser = subparsers.add_parser("build")
+    build_parser.add_argument("--plan", required=True)
+    build_parser.add_argument("--gradlew", default="./gradlew")
+    build_parser.set_defaults(func=build_command)
 
-    promote = subparsers.add_parser("promote-stable")
-    promote.add_argument("--affected", required=True)
-    promote.add_argument("--version-file", default="gradle/libs.versions.toml")
-    promote.set_defaults(func=promote_stable)
+    publish_parser = subparsers.add_parser("publish-snapshot")
+    publish_parser.add_argument("--plan", required=True)
+    publish_parser.add_argument("--gradlew", default="./gradlew")
+    publish_parser.set_defaults(func=publish_snapshot_command)
 
-    next_snapshot = subparsers.add_parser("next-snapshots")
-    next_snapshot.add_argument("--affected", required=True)
-    next_snapshot.add_argument("--version-file", default="gradle/libs.versions.toml")
-    next_snapshot.set_defaults(func=next_snapshots)
-
-    assert_parser = subparsers.add_parser("assert-versions")
-    assert_parser.add_argument("--affected", required=True)
-    assert_parser.add_argument("--require", choices=("snapshot", "stable"), required=True)
-    assert_parser.set_defaults(func=assert_versions)
-
-    notes = subparsers.add_parser("snapshot-notes")
-    notes.add_argument("--existing-body")
-    notes.add_argument("--output", required=True)
-    notes.add_argument("--group", required=True)
-    notes.add_argument("--version", required=True)
-    notes.add_argument("--commit", required=True)
-    notes.add_argument("--branch", required=True)
-    notes.add_argument("--run-url", required=True)
-    notes.add_argument("--published-at", required=True)
-    notes.add_argument("--modules-json", required=True)
-    notes.add_argument("--assets-json", default="[]")
-    notes.set_defaults(func=snapshot_notes)
-
-    delete_package = subparsers.add_parser("delete-package-version")
-    delete_package.add_argument("--owner", required=True)
-    delete_package.add_argument("--package-name", required=True)
-    delete_package.add_argument("--version", required=True)
-    delete_package.set_defaults(func=delete_package_version)
+    stable_parser = subparsers.add_parser("publish-stable")
+    stable_parser.add_argument("--plan", required=True)
+    stable_parser.add_argument("--gradlew", default="./gradlew")
+    stable_parser.set_defaults(func=publish_stable_command)
 
     args = parser.parse_args()
     args.func(args)
@@ -543,5 +930,8 @@ if __name__ == "__main__":
     try:
         main()
     except subprocess.CalledProcessError as exc:
-        sys.stderr.write(exc.stderr)
+        if exc.stdout:
+            sys.stdout.write(exc.stdout)
+        if exc.stderr:
+            sys.stderr.write(exc.stderr)
         raise SystemExit(exc.returncode) from exc

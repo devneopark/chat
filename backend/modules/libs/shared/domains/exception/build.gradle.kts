@@ -3,5 +3,5 @@ plugins {
 }
 
 dependencies {
-    api("com.devneopark.chat:shared-kernel:0.0.1-SNAPSHOT")
+    api(libs.backend.shared.kernel)
 }
