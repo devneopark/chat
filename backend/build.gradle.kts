@@ -127,8 +127,10 @@ require(releaseChannel in setOf("snapshot", "stable")) {
     "releaseChannel must be snapshot or stable: $releaseChannel"
 }
 
-fun channelVersion(baseVersion: String): String =
-    if (releaseChannel == "snapshot") "$baseVersion-SNAPSHOT" else baseVersion
+fun channelVersion(version: String): String {
+    val baseVersion = version.removeSuffix("-SNAPSHOT")
+    return if (releaseChannel == "snapshot") "$baseVersion-SNAPSHOT" else baseVersion
+}
 
 val useLocalModules = providers.gradleProperty("useLocalModules")
     .map(String::toBoolean)
