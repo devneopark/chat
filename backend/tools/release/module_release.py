@@ -260,6 +260,67 @@ def find_containing_module(file_path: str, modules: Iterable[Module]) -> Module 
     return None
 
 
+def is_module_build_file(file_path: str, module: Module) -> bool:
+    return file_path == f"{module.project_dir}/build.gradle.kts"
+
+
+def validate_single_pr_module(base_graph: Graph, head_graph: Graph, files: list[str]) -> None:
+    """Allow one backend module content change per PR.
+
+    Existing module build.gradle.kts changes are intentionally excluded from the
+    count so a PR can update downstream dependency declarations while changing
+    the implementation of exactly one module.
+    """
+
+    base_by_artifact = {module.artifact_id: module for module in base_graph.modules}
+    head_by_artifact = {module.artifact_id: module for module in head_graph.modules}
+    added_artifacts = set(head_by_artifact) - set(base_by_artifact)
+    deleted_artifacts = set(base_by_artifact) - set(head_by_artifact)
+    changed: dict[str, set[str]] = {}
+
+    def mark(module: Module, reason: str) -> None:
+        changed.setdefault(module.path, set()).add(reason)
+
+    for artifact_id in sorted(added_artifacts):
+        mark(head_by_artifact[artifact_id], "module-added")
+    for artifact_id in sorted(deleted_artifacts):
+        mark(base_by_artifact[artifact_id], "module-deleted")
+
+    for file_path in files:
+        head_module = find_containing_module(file_path, head_graph.modules)
+        base_module = find_containing_module(file_path, base_graph.modules)
+        module = head_module or base_module
+        if not module:
+            continue
+
+        is_existing_module = module.artifact_id in base_by_artifact and module.artifact_id in head_by_artifact
+        if (
+            is_existing_module
+            and (
+                (head_module and is_module_build_file(file_path, head_module))
+                or (base_module and is_module_build_file(file_path, base_module))
+            )
+        ):
+            continue
+
+        mark(module, file_path)
+
+    if len(changed) <= 1:
+        return
+
+    lines = [
+        "A backend PR may change source/content files in only one backend module.",
+        "Existing module build.gradle.kts changes are allowed for dependency declaration updates.",
+        "",
+        "Changed backend modules:",
+    ]
+    for module_path, reasons in sorted(changed.items()):
+        lines.append(f"- {module_path}: {', '.join(sorted(reasons))}")
+    message = "\n".join(lines)
+    github_annotation("error", "Multiple backend modules changed", message)
+    raise SystemExit(message)
+
+
 def reverse_closure(direct: set[str], modules: Iterable[Module]) -> set[str]:
     reverse: dict[str, set[str]] = {}
     for module in modules:
@@ -383,12 +444,17 @@ def build_plan(
     files: list[str],
     *,
     resumable_sha: str | None = None,
+    enforce_single_pr_module: bool = False,
 ) -> dict[str, Any]:
     base_by_artifact = {module.artifact_id: module for module in base_graph.modules}
     head_by_artifact = {module.artifact_id: module for module in head_graph.modules}
     head_by_path = {module.path: module for module in head_graph.modules}
     added_artifacts = set(head_by_artifact) - set(base_by_artifact)
     deleted_artifacts = set(base_by_artifact) - set(head_by_artifact)
+
+    if enforce_single_pr_module:
+        validate_single_pr_module(base_graph, head_graph, files)
+
     direct = {head_by_artifact[artifact].path for artifact in added_artifacts}
     reasons: dict[str, set[str]] = {path: {"module-added"} for path in direct}
 
@@ -480,6 +546,7 @@ def plan_command(args: argparse.Namespace) -> None:
         head_graph,
         files,
         resumable_sha=args.allow_stable_at_head,
+        enforce_single_pr_module=args.enforce_single_pr_module,
     )
     output = json.dumps(plan, ensure_ascii=False, indent=2) + "\n"
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
@@ -905,6 +972,7 @@ def main() -> None:
     plan_parser.add_argument("--head", required=True)
     plan_parser.add_argument("--output", required=True)
     plan_parser.add_argument("--allow-stable-at-head")
+    plan_parser.add_argument("--enforce-single-pr-module", action="store_true")
     plan_parser.set_defaults(func=plan_command)
 
     build_parser = subparsers.add_parser("build")

@@ -170,6 +170,68 @@ class ReleasePlanTest(unittest.TestCase):
                 ["libs/first/src/main/kotlin/First.kt"],
             )
 
+    @patch("module_release.latest_stable_tag", return_value=None)
+    @patch("module_release.github_annotation")
+    def test_pr_single_module_policy_rejects_multiple_content_modules(
+        self,
+        _: object,
+        __: object,
+    ) -> None:
+        first = backend_module(":libs:first", "first")
+        second = backend_module(":libs:second", "second")
+
+        with self.assertRaisesRegex(SystemExit, "only one backend module"):
+            module_release.build_plan(
+                graph(first, second),
+                graph(first, second),
+                [
+                    "libs/first/src/main/kotlin/First.kt",
+                    "libs/second/src/test/kotlin/SecondTest.kt",
+                ],
+                enforce_single_pr_module=True,
+            )
+
+    @patch("module_release.latest_stable_tag", return_value=None)
+    def test_pr_single_module_policy_allows_other_module_build_gradle_changes(self, _: object) -> None:
+        first = backend_module(":libs:first", "first")
+        second = backend_module(":libs:second", "second")
+
+        plan = module_release.build_plan(
+            graph(first, second),
+            graph(first, second),
+            [
+                "libs/first/src/main/kotlin/First.kt",
+                "libs/second/build.gradle.kts",
+            ],
+            enforce_single_pr_module=True,
+        )
+
+        self.assertEqual(
+            [module["artifactId"] for module in plan["affected"]],
+            ["first", "second"],
+        )
+
+    @patch("module_release.latest_stable_tag", return_value=None)
+    @patch("module_release.github_annotation")
+    def test_pr_single_module_policy_rejects_multiple_added_modules(
+        self,
+        _: object,
+        __: object,
+    ) -> None:
+        first = backend_module(":libs:first", "first")
+        second = backend_module(":libs:second", "second")
+
+        with self.assertRaisesRegex(SystemExit, "module-added"):
+            module_release.build_plan(
+                graph(),
+                graph(first, second),
+                [
+                    "libs/first/build.gradle.kts",
+                    "libs/second/build.gradle.kts",
+                ],
+                enforce_single_pr_module=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

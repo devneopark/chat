@@ -142,6 +142,14 @@ dependencies {
 PR 검증에서만 `-PuseLocalModules=true`를 사용해 내부 Maven 좌표를 현재 checkout 모듈로 치환합니다.
 이를 통해 upstream 변경과 downstream 호환성을 merge 전에 검증합니다.
 
+PR은 실질적인 backend module 변경을 하나만 포함해야 합니다.
+모듈 내부의 `src/**`, `resources/**`, 테스트, 기타 content 파일을 두 개 이상의 모듈에서 동시에 변경하면
+PR workflow가 plan 단계에서 실패합니다.
+
+다만 기존 모듈의 `build.gradle.kts` 변경은 단일 모듈 카운트에서 제외합니다.
+하나의 upstream 모듈을 변경하면서 downstream 모듈의 내부 artifact 의존성 선언을 조정해야 하는 경우를 허용하기 위함입니다.
+이 경우 downstream 모듈은 affected set에는 포함되어 검증되지만, PR의 실질 변경 모듈 수 제한에는 걸리지 않습니다.
+
 ### 6.3. 버전 정책
 
 catalog에는 다음 형식만 허용합니다.
