@@ -76,6 +76,7 @@ jobs:
             --head-graph build/module-graph.json \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
+            --enforce-single-pr-module \
             --output build/release-plan.json
 
       - name: Build affected modules by dependency layer
