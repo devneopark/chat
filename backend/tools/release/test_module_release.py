@@ -27,7 +27,6 @@ def backend_module(
         path=path,
         project_dir=project_dir,
         artifact_id=artifact_id,
-        version_alias=f"backend-{artifact_id}",
         base_version=base_version,
         version=f"{base_version}-SNAPSHOT",
         type="library",
@@ -125,7 +124,7 @@ class ReleasePlanTest(unittest.TestCase):
         return_value=("0.1.0", "backend/libs/shared-kernel/v0.1.0"),
     )
     @patch("module_release.github_annotation")
-    def test_catalog_version_must_be_greater_than_stable(
+    def test_declared_module_version_must_be_greater_than_stable(
         self,
         _: object,
         __: object,
@@ -210,6 +209,29 @@ class ReleasePlanTest(unittest.TestCase):
             [module["artifactId"] for module in plan["affected"]],
             ["first", "second"],
         )
+
+    @patch("module_release.latest_stable_tag", return_value=None)
+    @patch("module_release.github_annotation")
+    def test_pr_single_module_policy_counts_module_version_changes(
+        self,
+        _: object,
+        __: object,
+    ) -> None:
+        first = backend_module(":libs:first", "first", base_version="0.1.0")
+        first_bumped = backend_module(":libs:first", "first", base_version="0.1.1")
+        second = backend_module(":libs:second", "second", base_version="0.1.0")
+        second_bumped = backend_module(":libs:second", "second", base_version="0.1.1")
+
+        with self.assertRaisesRegex(SystemExit, "module-version-changed"):
+            module_release.build_plan(
+                graph(first, second),
+                graph(first_bumped, second_bumped),
+                [
+                    "libs/first/build.gradle.kts",
+                    "libs/second/build.gradle.kts",
+                ],
+                enforce_single_pr_module=True,
+            )
 
     @patch("module_release.latest_stable_tag", return_value=None)
     @patch("module_release.github_annotation")

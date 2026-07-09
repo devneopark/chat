@@ -1,5 +1,7 @@
+version = "0.0.1"
+
 dependencies {
-    implementation(libs.backend.shared.domain.exception)
-    implementation(libs.backend.domain.room.reference)
-    implementation(libs.backend.domain.user.reference)
+    implementation("com.devneopark.chat.backend:shared-domain-exception:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat.backend:domain-room-reference:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat.backend:domain-user-reference:0.0.1-SNAPSHOT")
 }
