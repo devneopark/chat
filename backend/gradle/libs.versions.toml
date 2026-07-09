@@ -9,6 +9,7 @@ backend-domain-admission-slot-reference = "0.0.1"
 backend-domain-room-model = "0.0.1"
 backend-domain-room-reference = "0.0.1"
 backend-domain-room-service = "0.0.1"
+backend-domain-participant-reference = "0.0.1"
 backend-domain-user-model = "0.0.1"
 backend-domain-user-reference = "0.0.1"
 backend-domain-user-service = "0.0.1"
@@ -22,6 +23,7 @@ backend-domain-admission-slot-reference = { module = "com.devneopark.chat.backen
 backend-domain-room-model = { module = "com.devneopark.chat.backend:domain-room-model", version.ref = "backend-domain-room-model" }
 backend-domain-room-reference = { module = "com.devneopark.chat.backend:domain-room-reference", version.ref = "backend-domain-room-reference" }
 backend-domain-room-service = { module = "com.devneopark.chat.backend:domain-room-service", version.ref = "backend-domain-room-service" }
+backend-domain-participant-reference = { module = "com.devneopark.chat.backend:domain-participant-reference", version.ref = "backend-domain-participant-reference" }
 backend-domain-user-model = { module = "com.devneopark.chat.backend:domain-user-model", version.ref = "backend-domain-user-model" }
 backend-domain-user-reference = { module = "com.devneopark.chat.backend:domain-user-reference", version.ref = "backend-domain-user-reference" }
 backend-domain-user-service = { module = "com.devneopark.chat.backend:domain-user-service", version.ref = "backend-domain-user-service" }
