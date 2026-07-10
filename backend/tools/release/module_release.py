@@ -46,7 +46,6 @@ class Module:
     path: str
     project_dir: str
     artifact_id: str
-    version_alias: str
     base_version: str
     version: str
     type: str
@@ -166,7 +165,6 @@ def load_graph(path: Path) -> Graph:
                 path=item["path"],
                 project_dir=item["projectDir"].rstrip("/"),
                 artifact_id=item["artifactId"],
-                version_alias=item["versionAlias"],
                 base_version=item.get("baseVersion", parse_base_version(version)),
                 version=version,
                 type=module_type,
@@ -187,7 +185,6 @@ def module_payload(module: Module) -> dict[str, Any]:
         "path": module.path,
         "projectDir": module.project_dir,
         "artifactId": module.artifact_id,
-        "versionAlias": module.version_alias,
         "baseVersion": module.base_version,
         "version": module.version,
         "type": module.type,
@@ -210,7 +207,6 @@ def module_build_inputs(module: Module) -> tuple[Any, ...]:
     return (
         module.project_dir,
         module.artifact_id,
-        module.version_alias,
         module.base_version,
         module.type,
         tuple(
@@ -267,9 +263,10 @@ def is_module_build_file(file_path: str, module: Module) -> bool:
 def validate_single_pr_module(base_graph: Graph, head_graph: Graph, files: list[str]) -> None:
     """Allow one backend module content change per PR.
 
-    Existing module build.gradle.kts changes are intentionally excluded from the
-    count so a PR can update downstream dependency declarations while changing
-    the implementation of exactly one module.
+    Existing module build.gradle.kts dependency changes are intentionally
+    excluded from the file count so a PR can adjust downstream dependency
+    declarations while changing the implementation of exactly one module.
+    Module version changes still count as module changes.
     """
 
     base_by_artifact = {module.artifact_id: module for module in base_graph.modules}
@@ -285,6 +282,11 @@ def validate_single_pr_module(base_graph: Graph, head_graph: Graph, files: list[
         mark(head_by_artifact[artifact_id], "module-added")
     for artifact_id in sorted(deleted_artifacts):
         mark(base_by_artifact[artifact_id], "module-deleted")
+    for artifact_id in sorted(set(base_by_artifact) & set(head_by_artifact)):
+        base_module = base_by_artifact[artifact_id]
+        head_module = head_by_artifact[artifact_id]
+        if base_module.base_version != head_module.base_version:
+            mark(head_module, "module-version-changed")
 
     for file_path in files:
         head_module = find_containing_module(file_path, head_graph.modules)
@@ -310,7 +312,7 @@ def validate_single_pr_module(base_graph: Graph, head_graph: Graph, files: list[
 
     lines = [
         "A backend PR may change source/content files in only one backend module.",
-        "Existing module build.gradle.kts changes are allowed for dependency declaration updates.",
+        "Existing module build.gradle.kts dependency changes are allowed; module version changes still count.",
         "",
         "Changed backend modules:",
     ]
@@ -396,7 +398,7 @@ def validate_versions(modules: Iterable[Module], *, resumable_sha: str | None = 
     summary_rows = [
         "## Backend stable version validation",
         "",
-        "| Module | Catalog | Latest stable | Result |",
+        "| Module | Declared | Latest stable | Result |",
         "|---|---:|---:|---|",
     ]
     for module in sorted(modules, key=lambda item: item.artifact_id):
@@ -421,9 +423,9 @@ def validate_versions(modules: Iterable[Module], *, resumable_sha: str | None = 
                 )
                 continue
             message = (
-                f"{module.artifact_id}: catalog version {module.base_version} must be greater than "
+                f"{module.artifact_id}: declared version {module.base_version} must be greater than "
                 f"published stable {latest_version} ({latest_tag}). "
-                "Increase backend/gradle/libs.versions.toml."
+                f"Increase version in {module.project_dir}/build.gradle.kts."
             )
             errors.append(message)
             github_annotation("error", "Backend stable version collision", message)
@@ -572,8 +574,6 @@ def gradle_layer(
     gradlew: str,
     modules: list[dict[str, Any]],
     action: str,
-    *,
-    local_modules: bool,
 ) -> None:
     tasks: list[str] = []
     for module in modules:
@@ -587,8 +587,6 @@ def gradle_layer(
     if not tasks:
         return
     command = [gradlew, "--parallel", "-PreleaseChannel=snapshot"]
-    if local_modules:
-        command.append("-PuseLocalModules=true")
     command.extend(tasks)
     run(command, capture=False)
 
@@ -601,7 +599,7 @@ def build_command(args: argparse.Namespace) -> None:
     for index, layer in enumerate(plan["layers"]):
         artifacts = ", ".join(module["artifactId"] for module in layer)
         print(f"Building layer {index}: {artifacts}")
-        gradle_layer(args.gradlew, layer, "build", local_modules=True)
+        gradle_layer(args.gradlew, layer, "build")
 
 
 def git_tag_snapshot(module: dict[str, Any], sha: str) -> str:
@@ -943,7 +941,7 @@ def publish_snapshot_command(args: argparse.Namespace) -> None:
     for index, layer in enumerate(plan["layers"]):
         artifacts = ", ".join(module["artifactId"] for module in layer)
         print(f"Publishing layer {index}: {artifacts}")
-        gradle_layer(args.gradlew, layer, "publish", local_modules=False)
+        gradle_layer(args.gradlew, layer, "publish")
         for module in layer:
             tag = git_tag_snapshot(module, sha)
             if module["type"] == "service":

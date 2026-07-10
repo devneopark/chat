@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: backend-pr-${{ github.event.pull_request.number }}
@@ -24,6 +25,9 @@ jobs:
         github.event.pull_request.head.repo.full_name == github.repository
       }}
     runs-on: ubuntu-latest
+    env:
+      GH_PACKAGES_USERNAME: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v4

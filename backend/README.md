@@ -115,57 +115,69 @@ hotfix/*     stable 긴급 수정
 `feature/*` 브랜치는 `develop`으로 병합하고, 릴리즈 대상 변경은 최종적으로 `main`에 병합합니다.
 PR과 `develop`에서는 `x.y.z-SNAPSHOT`, `main`에서는 `x.y.z` stable 버전을 사용합니다.
 
-### 6.2. 버전 카탈로그와 내부 모듈 의존성
+### 6.2. 모듈 버전과 내부 모듈 의존성
 
-Gradle version catalog인 `gradle/libs.versions.toml`에서는 빌드 플러그인 버전과
-각 배포 대상 모듈의 suffix 없는 base 버전과 내부 Maven 좌표를 관리합니다.
+각 배포 대상 모듈은 자신의 `build.gradle.kts`에 suffix 없는 base 버전을 직접 명시합니다.
 
-```toml
-[versions]
-backend-shared-kernel = "0.0.1"
-backend-shared-domain-exception = "0.0.1"
-
-[libraries]
-backend-shared-kernel = { module = "com.devneopark.chat.backend:shared-kernel", version.ref = "backend-shared-kernel" }
+```kotlin
+version = "0.0.1"
 ```
 
 모듈이 다른 내부 모듈을 의존할 때는 `project(":modules:...")` 의존성을 기본으로 사용하지 않습니다.
-소비 모듈은 version catalog alias로 GitHub Packages Maven artifact를 참조합니다.
+소비 모듈은 GitHub Packages에 배포된 Maven artifact 좌표와 버전을 문자열로 명시합니다.
 
 ```kotlin
 dependencies {
-    implementation(libs.backend.shared.kernel)
+    implementation("com.devneopark.chat.backend:shared-kernel:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat.backend:domain-room-reference:0.129.31")
 }
 ```
 
-로컬 개발과 배포 workflow는 원격 GitHub Packages를 사용합니다.
-PR 검증에서만 `-PuseLocalModules=true`를 사용해 내부 Maven 좌표를 현재 checkout 모듈로 치환합니다.
-이를 통해 upstream 변경과 downstream 호환성을 merge 전에 검증합니다.
+dependency에 명시한 버전은 그대로 존중합니다.
+Gradle workflow가 내부 의존성 버전에 `-SNAPSHOT` suffix를 자동 부착하지 않습니다.
+따라서 특정 실행 모듈만 특정 stable 버전으로 rollback하거나,
+필요한 경우 명시적으로 SNAPSHOT artifact를 참조할 수 있습니다.
+
+Gradle version catalog인 `gradle/libs.versions.toml`은 Kotlin, Spring Boot 같은 빌드 플러그인 버전만 관리합니다.
+backend module의 배포 버전과 내부 artifact alias는 version catalog에서 관리하지 않습니다.
+
+로컬 개발, PR 검증, 배포 workflow는 모두 `build.gradle.kts`에 명시된 원격 GitHub Packages artifact를 사용합니다.
+PR 검증에서도 내부 Maven 좌표를 현재 checkout 모듈로 치환하지 않습니다.
 
 PR은 실질적인 backend module 변경을 하나만 포함해야 합니다.
 모듈 내부의 `src/**`, `resources/**`, 테스트, 기타 content 파일을 두 개 이상의 모듈에서 동시에 변경하면
 PR workflow가 plan 단계에서 실패합니다.
 
-다만 기존 모듈의 `build.gradle.kts` 변경은 단일 모듈 카운트에서 제외합니다.
+다만 기존 모듈의 `build.gradle.kts` dependency 선언 변경은 단일 모듈 카운트에서 제외합니다.
 하나의 upstream 모듈을 변경하면서 downstream 모듈의 내부 artifact 의존성 선언을 조정해야 하는 경우를 허용하기 위함입니다.
 이 경우 downstream 모듈은 affected set에는 포함되어 검증되지만, PR의 실질 변경 모듈 수 제한에는 걸리지 않습니다.
+모듈 자신의 `version` 변경은 단일 모듈 카운트에 포함됩니다.
 
 ### 6.3. 버전 정책
 
-catalog에는 다음 형식만 허용합니다.
+모듈 자신의 `version`에는 다음 형식만 허용합니다.
 
 ```text
 x.y.z
 ```
 
-Gradle은 `releaseChannel`에 따라 `-SNAPSHOT` suffix를 동적으로 적용합니다.
+Gradle은 배포 대상 모듈 자신의 version에만 `releaseChannel`을 적용합니다.
+
+```text
+develop push: x.y.z-SNAPSHOT
+main push:    x.y.z
+```
 
 `SNAPSHOT`은 변경 가능한 개발 버전이며,
 같은 SNAPSHOT 버전은 재배포할 수 있고, 실행 모듈의 prerelease asset도 교체할 수 있습니다.
 
 stable 버전은 불변 릴리즈입니다.
 같은 tag, package version, release, release asset이 이미 존재하면 배포하지 않습니다.
+affected 모듈의 선언 version이 이미 게시된 stable 버전 이하이면 PR 검증을 실패시킵니다.
 stable 릴리즈가 성공하면 해당 stable로 승격된 모듈의 직전 SNAPSHOT package, prerelease, tag를 정리합니다.
+
+내부 dependency version은 `x.y.z` 또는 `x.y.z-SNAPSHOT`을 허용합니다.
+stable release channel에서는 SNAPSHOT backend artifact에 의존할 수 없습니다.
 
 ### 6.4. 모듈 좌표
 
@@ -201,12 +213,11 @@ shared-kernel 변경
 같은 layer의 모듈은 병렬 실행하고 다음 layer는 이전 layer 전체 성공 후 시작합니다.
 의존성 cycle이 발견되면 workflow를 실패시킵니다.
 
-affected 모듈의 catalog 버전이 이미 게시된 stable 버전 이하이면 PR 검증을 실패시킵니다.
-
 ### 6.6. 배포 대상
 
 `settings.gradle.kts`는 다음 경로의 `build.gradle.kts`를 탐색해 모듈을 자동 등록합니다.
-신규 모듈은 디렉터리와 version catalog 항목을 함께 추가해야 하며, 누락·중복·고아 catalog 항목은 Gradle 설정 단계에서 실패합니다.
+신규 모듈은 디렉터리, 모듈명과 일치하는 artifactId, suffix 없는 `version`을 함께 추가해야 합니다.
+누락·중복·잘못된 내부 dependency 좌표는 Gradle 설정 또는 `printModuleGraph` 단계에서 실패합니다.
 
 라이브러리 모듈:
 
@@ -215,7 +226,7 @@ modules/libs/**
 ```
 
 - `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
-- 다른 모듈은 version catalog에 선언된 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
+- 다른 모듈은 `build.gradle.kts`에 명시한 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
 
 실행 모듈:
 
@@ -251,12 +262,18 @@ GitHub Actions 안에서 같은 repository의 tag, release, GitHub Packages를 �
 workflow에 명시한 `GITHUB_TOKEN` 권한을 사용합니다.
 
 ```yaml
+# PR validation
+permissions:
+  contents: read
+  packages: read
+
+# develop/main publish
 permissions:
   contents: write
   packages: write
 ```
 
-`GH_PACKAGES_USERNAME`은 로컬에서 직접 GitHub Packages에 publish할 때만 사용합니다.
+`GH_PACKAGES_USERNAME`은 로컬에서 GitHub Packages를 읽거나 publish할 때 사용합니다.
 Actions 환경에서는 `github.actor`를 사용합니다.
 
 Workflow는 bot commit이나 장기 repository secret을 사용하지 않습니다.

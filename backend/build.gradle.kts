@@ -1,4 +1,3 @@
-import java.util.concurrent.TimeUnit
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ProjectDependency
@@ -22,7 +21,6 @@ data class ReleaseModule(
     val path: String,
     val projectDir: String,
     val artifactId: String,
-    val versionAlias: String,
     val type: String,
     val tagNamespace: String,
 )
@@ -59,7 +57,6 @@ fun releaseModuleFor(project: Project): ReleaseModule {
         path = project.path,
         projectDir = project.projectDir.relativeTo(rootProject.projectDir).invariantSeparatorsPath,
         artifactId = artifactId,
-        versionAlias = "backend-$artifactId",
         type = type,
         tagNamespace = if (type == "library") "backend/libs" else "backend/services",
     )
@@ -80,44 +77,12 @@ require(releaseModulesByArtifactId.size == releaseModules.size) {
 
 val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
 val semverPattern = Regex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$")
+val semverOrSnapshotPattern = Regex("^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-SNAPSHOT)?$")
 
 fun versionFor(alias: String): String =
     versionCatalog.findVersion(alias)
         .orElseThrow { GradleException("Version catalog alias not found: $alias") }
         .requiredVersion
-
-releaseModules.forEach { module ->
-    val baseVersion = versionFor(module.versionAlias)
-    require(semverPattern.matches(baseVersion)) {
-        "Backend module version must be suffix-free SemVer: ${module.versionAlias}=$baseVersion"
-    }
-    if (module.type == "library") {
-        val library = versionCatalog.findLibrary(module.versionAlias)
-            .orElseThrow { GradleException("Version catalog library alias not found: ${module.versionAlias}") }
-            .get()
-        require(library.module.group == releaseGroup && library.module.name == module.artifactId) {
-            "Version catalog coordinate mismatch for ${module.path}: " +
-                "expected $releaseGroup:${module.artifactId}, actual ${library.module}"
-        }
-    }
-}
-
-val expectedVersionAliases = releaseModules.map(ReleaseModule::versionAlias).toSet()
-val orphanVersionAliases = versionCatalog.versionAliases
-    .filter { it.startsWith("backend-") && it !in expectedVersionAliases }
-require(orphanVersionAliases.isEmpty()) {
-    "Version catalog contains aliases without backend modules: ${orphanVersionAliases.sorted()}"
-}
-
-val expectedLibraryAliases = releaseModules
-    .filter { it.type == "library" }
-    .map(ReleaseModule::versionAlias)
-    .toSet()
-val orphanLibraryAliases = versionCatalog.libraryAliases
-    .filter { it.startsWith("backend-") && it !in expectedLibraryAliases }
-require(orphanLibraryAliases.isEmpty()) {
-    "Version catalog contains library aliases without backend library modules: ${orphanLibraryAliases.sorted()}"
-}
 
 val releaseChannel = providers.gradleProperty("releaseChannel")
     .orElse("snapshot")
@@ -132,9 +97,6 @@ fun channelVersion(version: String): String {
     return if (releaseChannel == "snapshot") "$baseVersion-SNAPSHOT" else baseVersion
 }
 
-val useLocalModules = providers.gradleProperty("useLocalModules")
-    .map(String::toBoolean)
-    .orElse(false)
 val githubPackagesUsername = providers
     .gradleProperty("githubPackagesUsername")
     .orElse(providers.environmentVariable("GH_PACKAGES_USERNAME"))
@@ -159,6 +121,14 @@ fun String.jsonEscape(): String =
     }
 
 fun String.asJsonString(): String = "\"${jsonEscape()}\""
+
+fun Project.backendBaseVersion(): String {
+    val properties = extensions.extraProperties
+    if (!properties.has("backendBaseVersion")) {
+        throw GradleException("Backend module version was not finalized for $path")
+    }
+    return properties["backendBaseVersion"].toString()
+}
 
 group = releaseGroup
 
@@ -188,7 +158,16 @@ subprojects {
     }
 
     group = releaseGroup
-    version = channelVersion(versionFor(releaseModule.versionAlias))
+
+    afterEvaluate {
+        val declaredVersion = version.toString()
+        require(semverPattern.matches(declaredVersion)) {
+            "Backend module version must be declared as suffix-free SemVer in " +
+                "${releaseModule.projectDir}/build.gradle.kts: version = \"$declaredVersion\""
+        }
+        extensions.extraProperties["backendBaseVersion"] = declaredVersion
+        version = channelVersion(declaredVersion)
+    }
 
     extensions.configure<JavaPluginExtension>("java") {
         toolchain {
@@ -212,23 +191,7 @@ subprojects {
     }
 
     configurations.configureEach {
-        resolutionStrategy.cacheChangingModulesFor(0, TimeUnit.SECONDS)
-        resolutionStrategy.eachDependency {
-            if (requested.group == releaseGroup && requested.version != null) {
-                useVersion(channelVersion(requested.version!!))
-                because("Backend module versions use the workflow release channel.")
-            }
-        }
-
-        if (useLocalModules.get()) {
-            resolutionStrategy.dependencySubstitution {
-                releaseModules.forEach { candidate ->
-                    substitute(module("$releaseGroup:${candidate.artifactId}"))
-                        .using(project(candidate.path))
-                        .because("PR validation uses backend modules from the current checkout.")
-                }
-            }
-        }
+        resolutionStrategy.cacheChangingModulesFor(0, "seconds")
     }
 
     if (releaseModule.type == "library") {
@@ -242,7 +205,7 @@ subprojects {
 
         tasks.named<Jar>("jar") {
             archiveBaseName.set(releaseModule.artifactId)
-            archiveVersion.set(project.version.toString())
+            archiveVersion.set(project.provider { project.version.toString() })
         }
 
         extensions.configure<PublishingExtension>("publishing") {
@@ -293,7 +256,7 @@ subprojects {
         }
 
         tasks.named<BootJar>("bootJar") {
-            archiveFileName.set("backend-${releaseModule.artifactId}-${project.version}.jar")
+            archiveFileName.set(project.provider { "backend-${releaseModule.artifactId}-${project.version}.jar" })
         }
 
         dependencies {
@@ -328,6 +291,18 @@ tasks.register("printModuleGraph") {
                             if (dependency.group == releaseGroup) {
                                 val target = releaseModulesByArtifactId[dependency.name]
                                 val requestedVersion = dependency.version.orEmpty()
+                                require(requestedVersion.isNotBlank()) {
+                                    "${moduleProject.path} backend dependency must declare an explicit version: " +
+                                        "$releaseGroup:${dependency.name}"
+                                }
+                                require(semverOrSnapshotPattern.matches(requestedVersion)) {
+                                    "${moduleProject.path} backend dependency version must be SemVer with optional " +
+                                        "-SNAPSHOT suffix: $releaseGroup:${dependency.name}:$requestedVersion"
+                                }
+                                require(releaseChannel != "stable" || !requestedVersion.endsWith("-SNAPSHOT")) {
+                                    "${moduleProject.path} stable release cannot depend on SNAPSHOT backend artifact: " +
+                                        "$releaseGroup:${dependency.name}:$requestedVersion"
+                                }
                                 val targetPath = target?.path.orEmpty()
                                 val targetArtifactId = target?.artifactId ?: dependency.name
                                 """
@@ -335,7 +310,7 @@ tasks.register("printModuleGraph") {
                                   "path": ${targetPath.asJsonString()},
                                   "artifactId": ${targetArtifactId.asJsonString()},
                                   "requestedVersion": ${requestedVersion.asJsonString()},
-                                  "effectiveVersion": ${channelVersion(requestedVersion).asJsonString()},
+                                  "effectiveVersion": ${requestedVersion.asJsonString()},
                                   "registered": ${target != null}
                                 }
                                 """.trimIndent()
@@ -344,16 +319,10 @@ tasks.register("printModuleGraph") {
                             }
                         }
                         is ProjectDependency -> {
-                            val target = releaseModulesByPath[dependency.path]
-                            """
-                            {
-                              "path": ${dependency.path.asJsonString()},
-                              "artifactId": ${(target?.artifactId ?: dependency.name).asJsonString()},
-                              "requestedVersion": "",
-                              "effectiveVersion": ${(target?.let { project(it.path).version.toString() } ?: "").asJsonString()},
-                              "registered": ${target != null}
-                            }
-                            """.trimIndent()
+                            throw GradleException(
+                                "${moduleProject.path} must not use project dependency ${dependency.path}. " +
+                                    "Use an explicit Maven coordinate: $releaseGroup:<artifact>:<version>"
+                            )
                         }
                         else -> null
                     }
@@ -378,8 +347,7 @@ tasks.register("printModuleGraph") {
               "path": ${releaseModule.path.asJsonString()},
               "projectDir": ${releaseModule.projectDir.asJsonString()},
               "artifactId": ${releaseModule.artifactId.asJsonString()},
-              "versionAlias": ${releaseModule.versionAlias.asJsonString()},
-              "baseVersion": ${versionFor(releaseModule.versionAlias).asJsonString()},
+              "baseVersion": ${moduleProject.backendBaseVersion().asJsonString()},
               "version": ${moduleProject.version.toString().asJsonString()},
               "type": ${releaseModule.type.asJsonString()},
               "tagNamespace": ${releaseModule.tagNamespace.asJsonString()},
