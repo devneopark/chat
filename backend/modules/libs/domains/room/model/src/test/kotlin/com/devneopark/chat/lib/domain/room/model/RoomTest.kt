@@ -14,16 +14,14 @@ class RoomTest {
     fun `given metadata when room is created then values are preserved`() {
         // given
         val id = Room.Id("room-1")
-        val hostUserId = Room.HostId("user-1")
         val title = "Room title"
         val passwordHash = "hashed-password"
 
         // when
-        val room = Room(id, hostUserId, title, passwordHash)
+        val room = Room(id, title, passwordHash)
 
         // then
         assertSame(id, room.id)
-        assertSame(hostUserId, room.hostUserId)
         assertEquals(title, room.title)
         assertEquals(passwordHash, room.passwordHash)
     }
@@ -31,7 +29,7 @@ class RoomTest {
     @Test
     fun `given no password hash when room is created then password hash is null`() {
         // when
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", null)
+        val room = Room(Room.Id("room-1"), "Room title", null)
 
         // then
         assertNull(room.passwordHash)
@@ -43,7 +41,7 @@ class RoomTest {
         val title = "a".repeat(50)
 
         // when
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), title, null)
+        val room = Room(Room.Id("room-1"), title, null)
 
         // then
         assertEquals(title, room.title)
@@ -56,7 +54,7 @@ class RoomTest {
 
         // when
         val exception = assertFailsWith<DomainRuleViolationException> {
-            Room(Room.Id("room-1"), Room.HostId("user-1"), " ", null)
+            Room(Room.Id("room-1"), " ", null)
         }
 
         // then
@@ -72,7 +70,7 @@ class RoomTest {
 
         // when
         val exception = assertFailsWith<DomainRuleViolationException> {
-            Room(Room.Id("room-1"), Room.HostId("user-1"), title, null)
+            Room(Room.Id("room-1"), title, null)
         }
 
         // then
@@ -87,7 +85,7 @@ class RoomTest {
 
         // when
         val exception = assertFailsWith<DomainRuleViolationException> {
-            Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", " ")
+            Room(Room.Id("room-1"), "Room title", " ")
         }
 
         // then
@@ -96,22 +94,9 @@ class RoomTest {
     }
 
     @Test
-    fun `given new host when host is changed then host is updated`() {
-        // given
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", null)
-        val newHostId = Room.HostId("user-2")
-
-        // when
-        room.changeHost(newHostId)
-
-        // then
-        assertSame(newHostId, room.hostUserId)
-    }
-
-    @Test
     fun `given new title when title is changed then title is updated`() {
         // given
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Original title", null)
+        val room = Room(Room.Id("room-1"), "Original title", null)
         val newTitle = "New title"
 
         // when
@@ -125,7 +110,7 @@ class RoomTest {
     fun `given invalid title when title is changed then exception is thrown and original title is retained`() {
         // given
         val originalTitle = "Original title"
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), originalTitle, null)
+        val room = Room(Room.Id("room-1"), originalTitle, null)
         val exceptionDefinition = ExceptionDefinition.INVALID_ROOM_TITLE
 
         // when
@@ -142,7 +127,7 @@ class RoomTest {
     @Test
     fun `given new password hash when password hash is changed then password hash is updated`() {
         // given
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", "old-hash")
+        val room = Room(Room.Id("room-1"), "Room title", "old-hash")
         val newPasswordHash = "new-hash"
 
         // when
@@ -155,7 +140,7 @@ class RoomTest {
     @Test
     fun `given null when password hash is changed then password is removed`() {
         // given
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", "hashed-password")
+        val room = Room(Room.Id("room-1"), "Room title", "hashed-password")
 
         // when
         room.changePasswordHash(null)
@@ -168,7 +153,7 @@ class RoomTest {
     fun `given blank password hash when password hash is changed then exception is thrown and original hash is retained`() {
         // given
         val originalPasswordHash = "original-hash"
-        val room = Room(Room.Id("room-1"), Room.HostId("user-1"), "Room title", originalPasswordHash)
+        val room = Room(Room.Id("room-1"), "Room title", originalPasswordHash)
         val exceptionDefinition = ExceptionDefinition.INVALID_ROOM_PASSWORD
 
         // when
