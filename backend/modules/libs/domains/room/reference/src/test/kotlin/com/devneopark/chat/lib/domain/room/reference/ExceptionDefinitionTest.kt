@@ -39,13 +39,10 @@ class ExceptionDefinitionTest {
         assertEquals("1-002-001", ExceptionDefinition.ROOM_ID_REQUIRED.code)
         assertEquals("Room ID is required.", ExceptionDefinition.ROOM_ID_REQUIRED.message)
 
-        assertEquals("1-002-002", ExceptionDefinition.HOST_USER_ID_REQUIRED.code)
-        assertEquals("Host user ID is required.", ExceptionDefinition.HOST_USER_ID_REQUIRED.message)
-
-        assertEquals("1-002-003", ExceptionDefinition.INVALID_ROOM_TITLE.code)
+        assertEquals("1-002-002", ExceptionDefinition.INVALID_ROOM_TITLE.code)
         assertEquals("Room title is invalid.", ExceptionDefinition.INVALID_ROOM_TITLE.message)
 
-        assertEquals("1-002-004", ExceptionDefinition.INVALID_ROOM_PASSWORD.code)
+        assertEquals("1-002-003", ExceptionDefinition.INVALID_ROOM_PASSWORD.code)
         assertEquals("Room password is invalid.", ExceptionDefinition.INVALID_ROOM_PASSWORD.message)
     }
 
