@@ -18,14 +18,9 @@ enum class ExceptionDefinition(
 ) {
 
     /**
-     * 채팅방 ID가 제공되지 않은 경우.
+     * 참여자 ID가 제공되지 않은 경우.
      */
-    ROOM_ID_REQUIRED("1-004-001", "Room ID is required."),
-
-    /**
-     * 사용자 ID가 제공되지 않은 경우.
-     */
-    USER_ID_REQUIRED("1-004-002", "User ID is required."),
+    PARTICIPANT_ID_REQUIRED("1-004-001", "Participant ID is required."),
 
     ;
 

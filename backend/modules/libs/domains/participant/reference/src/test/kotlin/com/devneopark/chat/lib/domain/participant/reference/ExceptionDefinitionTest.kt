@@ -36,11 +36,8 @@ class ExceptionDefinitionTest {
     @Test
     fun `given exception definitions when contract is checked then code and message match expected values`() {
         // then
-        assertEquals("1-004-001", ExceptionDefinition.ROOM_ID_REQUIRED.code)
-        assertEquals("Room ID is required.", ExceptionDefinition.ROOM_ID_REQUIRED.message)
-
-        assertEquals("1-004-002", ExceptionDefinition.USER_ID_REQUIRED.code)
-        assertEquals("User ID is required.", ExceptionDefinition.USER_ID_REQUIRED.message)
+        assertEquals("1-004-001", ExceptionDefinition.PARTICIPANT_ID_REQUIRED.code)
+        assertEquals("Participant ID is required.", ExceptionDefinition.PARTICIPANT_ID_REQUIRED.message)
     }
 
 }
