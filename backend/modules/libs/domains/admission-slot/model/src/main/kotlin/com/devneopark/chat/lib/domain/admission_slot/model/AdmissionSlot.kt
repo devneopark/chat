@@ -8,8 +8,9 @@ import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationExcept
 /**
  * 채팅방 정원 한 자리를 나타내는 애그리거트 루트.
  *
- * 슬롯은 채팅방 내부 번호와 현재 점유 참여자를 소유한다.
+ * 슬롯은 채팅방 내부 번호와 현재 점유 참여자의 불투명 식별자를 소유한다.
  * 점유자는 [assign]과 [revoke]를 통해서만 변경한다.
+ * 점유 참여자가 슬롯과 같은 채팅방에 속하는지는 참여자 정보를 조회할 수 있는 호출자가 검증한다.
  *
  * @param id 슬롯 식별자.
  * @param occupant 현재 슬롯을 점유한 참여자 식별자. 비어 있는 슬롯이면 `null`.
@@ -34,7 +35,10 @@ class AdmissionSlot(
     /**
      * 비어 있는 슬롯을 참여자에게 할당한다.
      *
-     * @param newOccupant 새로 슬롯을 점유할 참여자 식별자.
+     * [ParticipantId]만으로는 참여자가 속한 채팅방을 알 수 없으므로,
+     * 새 점유 참여자가 슬롯과 같은 채팅방에 속하는지는 호출자가 미리 검증해야 한다.
+     *
+     * @param newOccupant 새로 슬롯을 점유할 참여자의 불투명 식별자.
      * @throws DomainRuleViolationException 이미 점유된 슬롯에 참여자를 할당하려는 경우.
      */
     fun assign(newOccupant: ParticipantId) {
@@ -53,15 +57,15 @@ class AdmissionSlot(
      *
      * 슬롯이 비어 있으면 상태를 그대로 비어 있는 상태로 유지한다.
      *
-     * @param occupant 슬롯 점유를 해제할 참여자 식별자.
+     * 현재 점유자와 해제 요청 참여자의 동일성은 [ParticipantId.value]로 판별한다.
+     *
+     * @param occupant 슬롯 점유를 해제할 참여자의 불투명 식별자.
      * @throws DomainRuleViolationException 현재 점유자와 해제 요청 참여자가 다른 경우.
      */
     fun revoke(occupant: ParticipantId) {
         if (this.occupant != null) {
             val currentOccupant = this.occupant!!
-            val isRoomIdMatched = currentOccupant.roomId == occupant.roomId
-            val isUserIdMatched = currentOccupant.userId == occupant.userId
-            if (!isRoomIdMatched || !isUserIdMatched) {
+            if (currentOccupant.value != occupant.value) {
                 val exceptionDefinition = ExceptionDefinition.OCCUPANT_MISMATCH
                 throw DomainRuleViolationException(
                     exceptionDefinition.code,

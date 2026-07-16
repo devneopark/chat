@@ -27,7 +27,7 @@ class AdmissionSlotTest {
     @Test
     fun `given occupant when admission slot is created then occupant is preserved`() {
         // given
-        val occupant = TestParticipantId("room-1", "user-1")
+        val occupant = TestParticipantId("participant-1")
 
         // when
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1), occupant)
@@ -40,7 +40,7 @@ class AdmissionSlotTest {
     fun `given empty slot when occupant is assigned then occupant is updated`() {
         // given
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1))
-        val occupant = TestParticipantId("room-1", "user-1")
+        val occupant = TestParticipantId("participant-1")
 
         // when
         admissionSlot.assign(occupant)
@@ -52,13 +52,13 @@ class AdmissionSlotTest {
     @Test
     fun `given occupied slot when occupant is assigned then domain rule violation exception is thrown and original occupant is retained`() {
         // given
-        val originalOccupant = TestParticipantId("room-1", "user-1")
+        val originalOccupant = TestParticipantId("participant-1")
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1), originalOccupant)
         val exceptionDefinition = ExceptionDefinition.ALREADY_OCCUPIED
 
         // when
         val exception = assertFailsWith<DomainRuleViolationException> {
-            admissionSlot.assign(TestParticipantId("room-1", "user-2"))
+            admissionSlot.assign(TestParticipantId("participant-2"))
         }
 
         // then
@@ -70,11 +70,11 @@ class AdmissionSlotTest {
     @Test
     fun `given occupied slot when matching occupant is revoked then occupant is removed`() {
         // given
-        val occupant = TestParticipantId("room-1", "user-1")
+        val occupant = TestParticipantId("participant-1")
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1), occupant)
 
         // when
-        admissionSlot.revoke(TestParticipantId("room-1", "user-1"))
+        admissionSlot.revoke(EquivalentParticipantId("participant-1"))
 
         // then
         assertNull(admissionSlot.occupant)
@@ -86,7 +86,7 @@ class AdmissionSlotTest {
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1))
 
         // when
-        admissionSlot.revoke(TestParticipantId("room-1", "user-1"))
+        admissionSlot.revoke(TestParticipantId("participant-1"))
 
         // then
         assertNull(admissionSlot.occupant)
@@ -95,13 +95,13 @@ class AdmissionSlotTest {
     @Test
     fun `given occupied slot when different occupant is revoked then domain rule violation exception is thrown and original occupant is retained`() {
         // given
-        val originalOccupant = TestParticipantId("room-1", "user-1")
+        val originalOccupant = TestParticipantId("participant-1")
         val admissionSlot = AdmissionSlot(AdmissionSlot.Id("room-1", 1), originalOccupant)
         val exceptionDefinition = ExceptionDefinition.OCCUPANT_MISMATCH
 
         // when
         val exception = assertFailsWith<DomainRuleViolationException> {
-            admissionSlot.revoke(TestParticipantId("room-1", "user-2"))
+            admissionSlot.revoke(TestParticipantId("participant-2"))
         }
 
         // then
@@ -111,8 +111,11 @@ class AdmissionSlotTest {
     }
 
     private data class TestParticipantId(
-        override val roomId: String,
-        override val userId: String
+        override val value: String
+    ) : ParticipantId
+
+    private data class EquivalentParticipantId(
+        override val value: String
     ) : ParticipantId
 
 }
