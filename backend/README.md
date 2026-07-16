@@ -94,217 +94,50 @@ modules/
 
 ## 6. 버전, 의존성, 배포 전략
 
-이 프로젝트는 각 모듈을 독립적인 배포 단위로 다룹니다.
-
+각 모듈을 독립적인 배포 단위로 다룹니다.
 라이브러리 모듈은 다른 모듈에서 Gradle 의존성으로 소비할 수 있어야 하므로 GitHub Packages의 Maven registry에 배포합니다.
 실행 모듈은 다른 모듈의 라이브러리 의존성으로 쓰지 않고 독립 실행 가능한 Spring Boot `bootJar` 산출물로 배포하므로
 GitHub Release asset으로 배포합니다.
 
-### 6.1. 브랜치 전략
+### 6.1. 배포 채널
 
-GitFlow를 사용합니다.
+backend 모듈 변경이 `develop` 또는 `main`에 push되면 affected 모듈을 다음 채널로 배포합니다.
 
-```text
-develop      SNAPSHOT 개발선
-main         stable 릴리즈선
-feature/*    기능 개발
-release/*    stable 승격 준비
-hotfix/*     stable 긴급 수정
-```
+| 대상 브랜치 | 채널 | 배포 버전 |
+| --- | --- | --- |
+| `develop` | SNAPSHOT | `x.y.z-SNAPSHOT` |
+| `main` | stable | `x.y.z` |
 
-`feature/*` 브랜치는 `develop`으로 병합하고, 릴리즈 대상 변경은 최종적으로 `main`에 병합합니다.
-PR과 `develop`에서는 `x.y.z-SNAPSHOT`, `main`에서는 `x.y.z` stable 버전을 사용합니다.
+### 6.2. 버전과 내부 의존성
 
-### 6.2. 모듈 버전과 내부 모듈 의존성
-
-각 배포 대상 모듈은 자신의 `build.gradle.kts`에 suffix 없는 base 버전을 직접 명시합니다.
+모듈의 base 버전과 내부 artifact 좌표는 각 `build.gradle.kts`에 직접 명시합니다.
 
 ```kotlin
-version = "0.0.1"
-```
+version = "0.0.2"
 
-모듈이 다른 내부 모듈을 의존할 때는 `project(":modules:...")` 의존성을 기본으로 사용하지 않습니다.
-소비 모듈은 GitHub Packages에 배포된 Maven artifact 좌표와 버전을 문자열로 명시합니다.
-
-```kotlin
 dependencies {
-    implementation("com.devneopark.chat.backend:shared-kernel:0.0.1-SNAPSHOT")
-    implementation("com.devneopark.chat.backend:domain-room-reference:0.129.31")
+    implementation("com.devneopark.chat.backend:domain-room-reference:0.0.2-SNAPSHOT")
 }
 ```
 
-dependency에 명시한 버전은 그대로 존중합니다.
-Gradle workflow가 내부 의존성 버전에 `-SNAPSHOT` suffix를 자동 부착하지 않습니다.
-따라서 특정 실행 모듈만 특정 stable 버전으로 rollback하거나,
-필요한 경우 명시적으로 SNAPSHOT artifact를 참조할 수 있습니다.
+내부 모듈은 `project(...)`가 아니라 GitHub Packages의 Maven artifact로 소비합니다.
+버전은 자동 갱신되지 않으므로 특별한 고정 사유가 없다면 최신 게시 버전을 사용합니다.
+호환되지 않는 upstream 변경은 먼저 배포한 뒤 downstream의 의존성과 코드를 갱신합니다.
 
-Gradle version catalog인 `gradle/libs.versions.toml`은 Kotlin, Spring Boot 같은 빌드 플러그인 버전만 관리합니다.
-backend module의 배포 버전과 내부 artifact alias는 version catalog에서 관리하지 않습니다.
+### 6.3. PR, 버전, affected 모듈
 
-로컬 개발, PR 검증, 배포 workflow는 모두 `build.gradle.kts`에 명시된 원격 GitHub Packages artifact를 사용합니다.
-PR 검증에서도 내부 Maven 좌표를 현재 checkout 모듈로 치환하지 않습니다.
+- PR은 실질적인 backend 모듈 변경을 하나만 포함합니다. 기존 모듈의 dependency 선언 변경은 이 제한에서 제외합니다.
+- 소스·공개 계약·동작이 바뀌면 base 버전을 올립니다. dependency 좌표만 정렬할 때는 기존 SNAPSHOT 버전을 유지할 수 있습니다.
+- SNAPSHOT은 재배포할 수 있지만 stable 버전은 덮어쓸 수 없습니다. stable 배포는 SNAPSHOT 내부 의존성을 허용하지 않습니다.
+- 변경 모듈과 이를 직간접적으로 의존하는 모듈을 affected 처리하며, upstream에서 downstream 순서로 검증·배포합니다.
 
-PR은 실질적인 backend module 변경을 하나만 포함해야 합니다.
-모듈 내부의 `src/**`, `resources/**`, 테스트, 기타 content 파일을 두 개 이상의 모듈에서 동시에 변경하면
-PR workflow가 plan 단계에서 실패합니다.
+### 6.4. 등록과 배포 대상
 
-다만 기존 모듈의 `build.gradle.kts` dependency 선언 변경은 단일 모듈 카운트에서 제외합니다.
-하나의 upstream 모듈을 변경하면서 downstream 모듈의 내부 artifact 의존성 선언을 조정해야 하는 경우를 허용하기 위함입니다.
-이 경우 downstream 모듈은 affected set에는 포함되어 검증되지만, PR의 실질 변경 모듈 수 제한에는 걸리지 않습니다.
-모듈 자신의 `version` 변경은 단일 모듈 카운트에 포함됩니다.
+`settings.gradle.kts`는 `modules/libs/**`와 `modules/services/**`의 `build.gradle.kts`를 탐색해 모듈을 등록합니다.
 
-### 6.3. 버전 정책
+| 모듈 | 산출물 | 배포 위치 |
+| --- | --- | --- |
+| 라이브러리 | Maven artifact | GitHub Packages |
+| 실행 모듈 | Spring Boot `bootJar` | GitHub Release asset |
 
-모듈 자신의 `version`에는 다음 형식만 허용합니다.
-
-```text
-x.y.z
-```
-
-Gradle은 배포 대상 모듈 자신의 version에만 `releaseChannel`을 적용합니다.
-
-```text
-develop push: x.y.z-SNAPSHOT
-main push:    x.y.z
-```
-
-`SNAPSHOT`은 변경 가능한 개발 버전이며,
-같은 SNAPSHOT 버전은 재배포할 수 있고, 실행 모듈의 prerelease asset도 교체할 수 있습니다.
-
-stable 버전은 불변 릴리즈입니다.
-같은 tag, package version, release, release asset이 이미 존재하면 배포하지 않습니다.
-affected 모듈의 선언 version이 이미 게시된 stable 버전 이하이면 PR 검증을 실패시킵니다.
-stable 릴리즈가 성공하면 해당 stable로 승격된 모듈의 직전 SNAPSHOT package, prerelease, tag를 정리합니다.
-
-내부 dependency version은 `x.y.z` 또는 `x.y.z-SNAPSHOT`을 허용합니다.
-stable release channel에서는 SNAPSHOT backend artifact에 의존할 수 없습니다.
-
-### 6.4. 모듈 좌표
-
-모든 라이브러리 모듈은 고정된 Maven 좌표를 가집니다.
-
-```text
-group: com.devneopark.chat.backend
-artifact: <module-artifact-name>
-version: <module-version>
-```
-
-예시:
-
-```text
-com.devneopark.chat.backend:shared-kernel:0.0.1-SNAPSHOT
-com.devneopark.chat.backend:shared-domain-exception:0.0.1-SNAPSHOT
-com.devneopark.chat.backend:domain-user-model:0.0.1-SNAPSHOT
-```
-
-### 6.5. Affected 전파
-
-변경된 모듈을 직접 배포 대상으로 삼고, 해당 모듈을 직간접적으로 의존하는 소비 모듈까지 affected set에 포함합니다.
-
-```text
-rest-api depends on domain-user-model
-domain-user-model depends on shared-kernel
-
-shared-kernel 변경
-=> affected: shared-kernel, domain-user-model, rest-api
-```
-
-검증과 배포는 내부 의존성 그래프를 위상 layer로 정렬해 upstream에서 downstream 순서로 진행합니다.
-같은 layer의 모듈은 병렬 실행하고 다음 layer는 이전 layer 전체 성공 후 시작합니다.
-의존성 cycle이 발견되면 workflow를 실패시킵니다.
-
-### 6.6. 배포 대상
-
-`settings.gradle.kts`는 다음 경로의 `build.gradle.kts`를 탐색해 모듈을 자동 등록합니다.
-신규 모듈은 디렉터리, 모듈명과 일치하는 artifactId, suffix 없는 `version`을 함께 추가해야 합니다.
-누락·중복·잘못된 내부 dependency 좌표는 Gradle 설정 또는 `printModuleGraph` 단계에서 실패합니다.
-
-라이브러리 모듈:
-
-```text
-modules/libs/**
-```
-
-- `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
-- 다른 모듈은 `build.gradle.kts`에 명시한 Maven 좌표와 버전으로 이 artifact를 가져옵니다.
-
-실행 모듈:
-
-```text
-modules/services/rest-api
-modules/services/messaging-gateway
-```
-
-- Spring Boot `bootJar`로 실행 가능한 jar를 생성합니다.
-- 생성된 bootJar 파일을 GitHub Release asset으로 업로드합니다.
-- 실행 모듈의 bootJar는 다른 모듈의 `implementation(...)` 의존성으로 사용하지 않습니다.
-
-### 6.7. 태그 규칙
-
-모듈별 독립 릴리즈를 전제로 태그에는 모듈 이름과 버전을 함께 포함합니다.
-
-```text
-backend/libs/shared-kernel/v0.0.1-SNAPSHOT
-backend/libs/shared-kernel/v0.0.1
-backend/services/rest-api/v0.0.1-SNAPSHOT
-backend/services/rest-api/v0.0.1
-```
-
-SNAPSHOT tag는 mutable 기준점입니다.
-stable tag는 immutable 기준점입니다.
-
-### 6.8. 인증과 Secret
-
-로컬 환경에는 GitHub token을 저장하지 않습니다.
-GitHub Actions에서는 실행별 내장 `GITHUB_TOKEN`을 사용합니다.
-
-GitHub Actions 안에서 같은 repository의 tag, release, GitHub Packages를 다루는 작업은
-workflow에 명시한 `GITHUB_TOKEN` 권한을 사용합니다.
-
-```yaml
-# PR validation
-permissions:
-  contents: read
-  packages: read
-
-# develop/main publish
-permissions:
-  contents: write
-  packages: write
-```
-
-`GH_PACKAGES_USERNAME`은 로컬에서 GitHub Packages를 읽거나 publish할 때 사용합니다.
-Actions 환경에서는 `github.actor`를 사용합니다.
-
-Workflow는 bot commit이나 장기 repository secret을 사용하지 않습니다.
-PR workflow는 `devneopark`이 같은 repository에서 생성한 PR에만 job을 실행하며,
-`pull_request_target`을 사용하지 않습니다.
-
-### 6.9. 로컬 GitHub Packages 사용
-
-private GitHub Packages는 로컬 개발환경에서도 인증이 필요합니다.
-IDE에서 Gradle sync/build가 GitHub Packages artifact를 가져오려면
-IDE의 Gradle 실행 환경에 다음 환경변수를 주입해야 합니다.
-
-```bash
-GH_PACKAGES_USERNAME=devneopark
-GITHUB_TOKEN=<read:packages 권한이 있는 GitHub token>
-```
-
-루트 Gradle 설정은 다음 순서로 credential을 찾습니다.
-
-```text
-username: githubPackagesUsername -> GH_PACKAGES_USERNAME -> GITHUB_ACTOR
-token: githubPackagesToken -> GITHUB_TOKEN
-```
-
-CLI에서 일시적으로 검증할 때는 다음처럼 실행할 수 있습니다.
-
-```bash
-GH_PACKAGES_USERNAME=devneopark GITHUB_TOKEN="$(gh auth token)" ./gradlew build
-```
-
-### 6.10. 실행 모듈 런타임 버전
-
-실행 모듈은 빌드 시점의 `project.version`을 Spring Boot build info에 주입합니다.
-애플리케이션 런타임에서는 `BuildProperties`를 통해 현재 실행 중인 artifact 버전을 확인할 수 있어야 합니다.
+릴리즈 태그는 `backend/<libs|services>/<artifact-id>/v<version>` 형식을 사용합니다.
