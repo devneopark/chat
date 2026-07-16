@@ -6,24 +6,20 @@ import kotlin.test.assertEquals
 class ParticipantIdTest {
 
     @Test
-    fun `given participant id implementation when values are read then original values are exposed`() {
+    fun `given participant id implementation when value is read then original value is exposed`() {
         // given
-        val roomId = "room-1"
-        val userId = "user-1"
-        val participantId: ParticipantId = TestParticipantId(roomId, userId)
+        val value = "participant-1"
+        val participantId: ParticipantId = TestParticipantId(value)
 
         // when
-        val actualRoomId = participantId.roomId
-        val actualUserId = participantId.userId
+        val actualValue = participantId.value
 
         // then
-        assertEquals(roomId, actualRoomId)
-        assertEquals(userId, actualUserId)
+        assertEquals(value, actualValue)
     }
 
     private data class TestParticipantId(
-        override val roomId: String,
-        override val userId: String
+        override val value: String
     ) : ParticipantId
 
 }
