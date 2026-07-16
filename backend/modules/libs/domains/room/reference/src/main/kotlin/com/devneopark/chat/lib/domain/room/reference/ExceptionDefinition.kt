@@ -23,19 +23,14 @@ enum class ExceptionDefinition(
     ROOM_ID_REQUIRED("1-002-001", "Room ID is required."),
 
     /**
-     * 호스트 유저 ID가 제공되지 않은 경우.
-     */
-    HOST_USER_ID_REQUIRED("1-002-002", "Host user ID is required."),
-
-    /**
      * 채팅방 title 값이 허용된 형식이 아닌 경우.
      */
-    INVALID_ROOM_TITLE("1-002-003", "Room title is invalid."),
+    INVALID_ROOM_TITLE("1-002-002", "Room title is invalid."),
 
     /**
      * 채팅방 비밀번호가 허용된 형식이 아닌 경우.
      */
-    INVALID_ROOM_PASSWORD("1-002-004", "Room password is invalid.")
+    INVALID_ROOM_PASSWORD("1-002-003", "Room password is invalid.")
 
     ;
 
