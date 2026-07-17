@@ -42,28 +42,25 @@ class ExceptionDefinitionTest {
         assertEquals("1-005-002", ExceptionDefinition.MESSAGE_PAYLOAD_REQUIRED.code)
         assertEquals("Message content is required.", ExceptionDefinition.MESSAGE_PAYLOAD_REQUIRED.message)
 
-        assertEquals("1-005-003", ExceptionDefinition.DISPLAY_NAME_SNAPSHOT_REQUIRED.code)
-        assertEquals("Display name snapshot is required.", ExceptionDefinition.DISPLAY_NAME_SNAPSHOT_REQUIRED.message)
-
-        assertEquals("1-005-004", ExceptionDefinition.INVALID_MENTION_START_INDEX_NUMBER.code)
+        assertEquals("1-005-003", ExceptionDefinition.INVALID_MENTION_START_INDEX_NUMBER.code)
         assertEquals("Mention start index is invalid.", ExceptionDefinition.INVALID_MENTION_START_INDEX_NUMBER.message)
 
-        assertEquals("1-005-005", ExceptionDefinition.INVALID_MENTION_END_INDEX_NUMBER.code)
+        assertEquals("1-005-004", ExceptionDefinition.INVALID_MENTION_END_INDEX_NUMBER.code)
         assertEquals("Mention end index is invalid.", ExceptionDefinition.INVALID_MENTION_END_INDEX_NUMBER.message)
 
-        assertEquals("1-005-006", ExceptionDefinition.INVALID_MENTION_RANGE.code)
+        assertEquals("1-005-005", ExceptionDefinition.INVALID_MENTION_RANGE.code)
         assertEquals("Mention range is invalid.", ExceptionDefinition.INVALID_MENTION_RANGE.message)
 
-        assertEquals("1-005-007", ExceptionDefinition.OVERLAPPING_MENTION_RANGES.code)
+        assertEquals("1-005-006", ExceptionDefinition.OVERLAPPING_MENTION_RANGES.code)
         assertEquals("Mention ranges must not overlap.", ExceptionDefinition.OVERLAPPING_MENTION_RANGES.message)
 
-        assertEquals("1-005-008", ExceptionDefinition.SELF_THREAD_ROOT_NOT_ALLOWED.code)
+        assertEquals("1-005-007", ExceptionDefinition.SELF_THREAD_ROOT_NOT_ALLOWED.code)
         assertEquals(
             "Chat message cannot be its own thread root.",
             ExceptionDefinition.SELF_THREAD_ROOT_NOT_ALLOWED.message
         )
 
-        assertEquals("1-005-009", ExceptionDefinition.SELF_REPLY_NOT_ALLOWED.code)
+        assertEquals("1-005-008", ExceptionDefinition.SELF_REPLY_NOT_ALLOWED.code)
         assertEquals("Chat message cannot reply to itself.", ExceptionDefinition.SELF_REPLY_NOT_ALLOWED.message)
     }
 
