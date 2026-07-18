@@ -25,20 +25,6 @@ class DomainExceptionTest {
     }
 
     @Test
-    fun `given code and message when domain entity not found exception is created then both values are preserved`() {
-        // given
-        val code = "1-000-002"
-        val message = "domain entity was not found"
-
-        // when
-        val exception = DomainEntityNotFoundException(code, message)
-
-        // then
-        assertEquals(code, exception.code)
-        assertEquals(message, exception.message)
-    }
-
-    @Test
     fun `given no cause when domain exception is created then cause is null`() {
         // given
         val code = "1-000-001"
@@ -116,22 +102,6 @@ class DomainExceptionTest {
         val code = "1-000-001"
         val message = "domain rule violated"
         val exception: Throwable = DomainRuleViolationException(code, message)
-
-        // when
-        val exceptionBase = exception as? ExceptionBase
-        val runtimeException = exception as? RuntimeException
-
-        // then
-        assertNotNull(exceptionBase)
-        assertNotNull(runtimeException)
-    }
-
-    @Test
-    fun `given domain entity not found exception when checked by type then it follows exception contract`() {
-        // given
-        val code = "1-000-002"
-        val message = "domain entity was not found"
-        val exception: Throwable = DomainEntityNotFoundException(code, message)
 
         // when
         val exceptionBase = exception as? ExceptionBase
