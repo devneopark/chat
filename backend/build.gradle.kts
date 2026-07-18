@@ -260,7 +260,6 @@ subprojects {
         }
 
         dependencies {
-            add("implementation", "org.springframework.boot:spring-boot-starter-webmvc")
             add("implementation", "org.jetbrains.kotlin:kotlin-reflect")
             add("implementation", "tools.jackson.module:jackson-module-kotlin")
             add("testImplementation", "org.springframework.boot:spring-boot-starter-test")
