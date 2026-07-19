@@ -41,3 +41,6 @@ out/
 
 ### MacOS ###
 .DS_Store
+
+### CUSTOME ###
+gradle.properties
