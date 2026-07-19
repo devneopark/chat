@@ -64,6 +64,25 @@ fun runGit(vararg arguments: String): Pair<Int, String> {
     return process.waitFor() to output
 }
 
+fun isZeroSha(sha: String): Boolean =
+    sha.length == 40 && sha.all { it == '0' }
+
+fun resolveBaseSha(baseSha: String, headSha: String): String {
+    if (!isZeroSha(baseSha)) return baseSha
+
+    val (exitCode, output) = runGit("merge-base", headSha, "origin/main")
+    val resolvedBaseSha = output.trim()
+    if (exitCode == 0 && resolvedBaseSha.isNotBlank()) {
+        notice(
+            "최초 push 기준 커밋 보정",
+            "기준 커밋이 없어 origin/main과의 공통 조상 커밋을 사용합니다: $resolvedBaseSha"
+        )
+        return resolvedBaseSha
+    }
+
+    fail("최초 push의 기준 커밋을 확인하지 못했습니다. origin/main을 확인하세요.")
+}
+
 fun normalizeRepositoryPath(path: String): String {
     val absolutePath = try {
         repositoryRoot.resolve(path).normalize()
@@ -82,12 +101,14 @@ fun normalizeRepositoryPath(path: String): String {
 }
 
 fun readChangedFiles(): List<String> {
-    val baseSha = System.getenv("BASE_SHA").orEmpty()
+    val requestedBaseSha = System.getenv("BASE_SHA").orEmpty()
     val headSha = System.getenv("HEAD_SHA").orEmpty()
 
-    if (baseSha.isBlank() || headSha.isBlank()) {
+    if (requestedBaseSha.isBlank() || headSha.isBlank() || isZeroSha(headSha)) {
         fail("PR 기준 커밋 정보를 찾을 수 없습니다.")
     }
+
+    val baseSha = resolveBaseSha(requestedBaseSha, headSha)
 
     val (exitCode, output) = runGit(
         "diff",

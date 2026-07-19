@@ -58,3 +58,4 @@ Gradle 프로젝트만 실행한다.
 - `backend-develop-publish.yml`: `develop/backend/**`의 SNAPSHOT 배포
 - `backend-main-publish.yml`: `main`의 stable 배포
 - 라이브러리는 GitHub Packages, 서비스는 GitHub Releases에 배포한다.
+- 최초 `develop/backend/**` push에서는 `origin/main`과의 공통 조상 커밋을 변경 기준으로 사용한다.
