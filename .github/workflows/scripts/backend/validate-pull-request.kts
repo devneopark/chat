@@ -5,6 +5,7 @@ import kotlin.system.exitProcess
 
 val repositoryRoot = Path.of("").toAbsolutePath().normalize()
 val backendRoot = repositoryRoot.resolve("backend").normalize()
+val backendModulesRoot = backendRoot.resolve("modules").normalize()
 
 fun escapeCommandValue(value: String): String =
     value
@@ -119,13 +120,22 @@ fun isCommonFile(path: String): Boolean =
 
 fun modulePathFor(branch: String): String {
     val moduleRelativePath = branch.removePrefix("develop/backend/")
+
+    if (!moduleRelativePath.startsWith("libs/") &&
+        !moduleRelativePath.startsWith("services/")) {
+        fail(
+            "백엔드 모듈 브랜치는 develop/backend/libs/** 또는 " +
+                "develop/backend/services/** 형식이어야 합니다: $branch"
+        )
+    }
+
     val moduleAbsolutePath = try {
-        backendRoot.resolve(moduleRelativePath).normalize()
+        backendModulesRoot.resolve(moduleRelativePath).normalize()
     } catch (_: RuntimeException) {
         fail("브랜치명에서 유효한 모듈 경로를 만들 수 없습니다.")
     }
 
-    if (!moduleAbsolutePath.startsWith(backendRoot)) {
+    if (!moduleAbsolutePath.startsWith(backendModulesRoot)) {
         fail("브랜치명이 백엔드 프로젝트 경로 밖을 가리킵니다.")
     }
 
@@ -208,7 +218,10 @@ if (moduleOwnerBranch != null) {
                 appendLine("main 대상 공통 변경 PR에 모듈 파일이 포함되었습니다.")
                 invalidFiles.forEach { appendLine("- $it") }
                 appendLine()
-                appendLine("모듈 변경은 해당 develop/backend/<모듈> 브랜치를 거쳐야 합니다.")
+                appendLine(
+                    "모듈 변경은 해당 develop/backend/libs/** 또는 " +
+                        "develop/backend/services/** 브랜치를 거쳐야 합니다."
+                )
             }
         )
     }

@@ -34,8 +34,11 @@ kotlinc -script .github/workflows/scripts/backend/publish-backend.kts
 
 ## 변경 범위 정책
 
-- `feature → develop/backend/<모듈>`: 담당 모듈만 변경할 수 있다.
-- `develop/backend/<모듈> → main`: 담당 모듈만 변경할 수 있다.
+- `feature → develop/backend/libs/**`: 담당 라이브러리 모듈만 변경할 수 있다.
+- `feature → develop/backend/services/**`: 담당 서비스 모듈만 변경할 수 있다.
+- `develop/backend/libs/** → main`: 담당 라이브러리 모듈만 변경할 수 있다.
+- `develop/backend/services/** → main`: 담당 서비스 모듈만 변경할 수 있다.
+- 브랜치 뒤 경로는 `backend/modules/` 아래의 디렉터리 구조와 동일해야 한다.
 - 일반 브랜치에서 `main`으로 가는 PR: 저장소 공통 파일, 백엔드 프로젝트 루트 파일, 워크플로 파일만 변경할 수 있다.
 
 main 병합 이후 각 `develop/backend/**` 브랜치의 rebase 및 원격 push는 수동으로 수행한다.
