@@ -242,9 +242,8 @@ def changed_files(base: str, head: str, repo_prefix: str) -> list[str]:
         if not normalized:
             continue
         if repo_prefix:
-            if not normalized.startswith(repo_prefix):
-                continue
-            normalized = normalized[len(repo_prefix) :]
+            if normalized.startswith(repo_prefix):
+                normalized = normalized[len(repo_prefix) :]
         files.append(normalized)
     return files
 
@@ -320,6 +319,34 @@ def validate_single_pr_module(base_graph: Graph, head_graph: Graph, files: list[
         lines.append(f"- {module_path}: {', '.join(sorted(reasons))}")
     message = "\n".join(lines)
     github_annotation("error", "Multiple backend modules changed", message)
+    raise SystemExit(message)
+
+
+def validate_pr_scope(base_graph: Graph, head_graph: Graph, files: list[str]) -> None:
+    """Require common-file changes to be isolated from module changes."""
+
+    modules = (*base_graph.modules, *head_graph.modules)
+    module_files: list[str] = []
+    common_files: list[str] = []
+    for file_path in files:
+        if find_containing_module(file_path, modules):
+            module_files.append(file_path)
+        else:
+            common_files.append(file_path)
+
+    if not module_files or not common_files:
+        return
+
+    lines = [
+        "Common files must be changed in a separate PR from backend module files.",
+        "",
+        "Module files:",
+    ]
+    lines.extend(f"- {file_path}" for file_path in sorted(module_files))
+    lines.extend(["", "Common files:"])
+    lines.extend(f"- {file_path}" for file_path in sorted(common_files))
+    message = "\n".join(lines)
+    github_annotation("error", "Mixed backend PR scope", message)
     raise SystemExit(message)
 
 
@@ -447,6 +474,7 @@ def build_plan(
     *,
     resumable_sha: str | None = None,
     enforce_single_pr_module: bool = False,
+    enforce_pr_scope: bool = False,
 ) -> dict[str, Any]:
     base_by_artifact = {module.artifact_id: module for module in base_graph.modules}
     head_by_artifact = {module.artifact_id: module for module in head_graph.modules}
@@ -454,6 +482,8 @@ def build_plan(
     added_artifacts = set(head_by_artifact) - set(base_by_artifact)
     deleted_artifacts = set(base_by_artifact) - set(head_by_artifact)
 
+    if enforce_pr_scope:
+        validate_pr_scope(base_graph, head_graph, files)
     if enforce_single_pr_module:
         validate_single_pr_module(base_graph, head_graph, files)
 
@@ -549,6 +579,7 @@ def plan_command(args: argparse.Namespace) -> None:
         files,
         resumable_sha=args.allow_stable_at_head,
         enforce_single_pr_module=args.enforce_single_pr_module,
+        enforce_pr_scope=args.enforce_pr_scope,
     )
     output = json.dumps(plan, ensure_ascii=False, indent=2) + "\n"
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
@@ -971,6 +1002,7 @@ def main() -> None:
     plan_parser.add_argument("--output", required=True)
     plan_parser.add_argument("--allow-stable-at-head")
     plan_parser.add_argument("--enforce-single-pr-module", action="store_true")
+    plan_parser.add_argument("--enforce-pr-scope", action="store_true")
     plan_parser.set_defaults(func=plan_command)
 
     build_parser = subparsers.add_parser("build")

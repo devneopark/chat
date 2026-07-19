@@ -101,11 +101,11 @@ GitHub Release asset으로 배포합니다.
 
 ### 6.1. 배포 채널
 
-backend 모듈 변경이 `develop` 또는 `main`에 push되면 affected 모듈을 다음 채널로 배포합니다.
+backend 모듈 변경이 모듈별 `develop/**` 또는 `main`에 push되면 affected 모듈을 다음 채널로 배포합니다.
 
 | 대상 브랜치 | 채널 | 배포 버전 |
 | --- | --- | --- |
-| `develop` | SNAPSHOT | `x.y.z-SNAPSHOT` |
+| `develop/**` | SNAPSHOT | `x.y.z-SNAPSHOT` |
 | `main` | stable | `x.y.z` |
 
 ### 6.2. 버전과 내부 의존성
@@ -126,7 +126,8 @@ dependencies {
 
 ### 6.3. PR, 버전, affected 모듈
 
-- PR은 실질적인 backend 모듈 변경을 하나만 포함합니다. 기존 모듈의 dependency 선언 변경은 이 제한에서 제외합니다.
+- PR은 `main` 또는 `develop/**`를 대상으로 하며, 실질적인 backend 모듈 변경을 하나만 포함합니다. 기존 모듈의 dependency 선언 변경은 이 제한에서 제외합니다.
+- 공용 파일 변경은 모듈 파일과 섞지 않고 공용 파일만 포함하는 별도 PR로 분리합니다.
 - 소스·공개 계약·동작이 바뀌면 base 버전을 올립니다. dependency 좌표만 정렬할 때는 기존 SNAPSHOT 버전을 유지할 수 있습니다.
 - SNAPSHOT은 재배포할 수 있지만 stable 버전은 덮어쓸 수 없습니다. stable 배포는 SNAPSHOT 내부 의존성을 허용하지 않습니다.
 - 변경 모듈과 이를 직간접적으로 의존하는 모듈을 affected 처리하며, upstream에서 downstream 순서로 검증·배포합니다.

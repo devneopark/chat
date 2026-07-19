@@ -1,0 +1,82 @@
+name: Backend Main Publish
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: backend-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish affected backend stable modules
+    runs-on: ubuntu-latest
+    env:
+      GH_PACKAGES_USERNAME: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout pushed commit
+        uses: actions/checkout@v4
+        with:
+          path: head
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Checkout previous main commit
+        uses: actions/checkout@v4
+        with:
+          path: base
+          ref: ${{ github.event.before }}
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate previous module graph
+        working-directory: base/backend
+        run: |
+          mkdir -p build
+          ./gradlew --no-daemon -q -PreleaseChannel=stable printModuleGraph > build/module-graph.json
+
+      - name: Generate current module graph
+        working-directory: head/backend
+        run: |
+          mkdir -p build
+          ./gradlew --no-daemon -q -PreleaseChannel=stable printModuleGraph > build/module-graph.json
+
+      - name: Plan affected modules
+        id: plan
+        working-directory: head/backend
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          python3 tools/release/module_release.py plan \
+            --base-graph ../../base/backend/build/module-graph.json \
+            --head-graph build/module-graph.json \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --allow-stable-at-head "$HEAD_SHA" \
+            --output build/release-plan.json
+
+      - name: Publish affected stable modules by dependency layer
+        if: steps.plan.outputs.has_work == 'true'
+        working-directory: head/backend
+        run: |
+          python3 tools/release/module_release.py publish-stable \
+            --plan build/release-plan.json

@@ -190,6 +190,41 @@ class ReleasePlanTest(unittest.TestCase):
                 enforce_single_pr_module=True,
             )
 
+    @patch("module_release.github_annotation")
+    def test_pr_scope_rejects_common_and_module_files(
+        self,
+        _: object,
+    ) -> None:
+        first = backend_module(":libs:first", "first")
+
+        with self.assertRaisesRegex(SystemExit, "Common files must be changed"):
+            module_release.build_plan(
+                graph(first),
+                graph(first),
+                [
+                    "libs/first/src/main/kotlin/First.kt",
+                    "build.gradle.kts",
+                ],
+                enforce_pr_scope=True,
+            )
+
+    @patch("module_release.latest_stable_tag", return_value=None)
+    def test_pr_scope_allows_common_files_only(self, _: object) -> None:
+        first = backend_module(":libs:first", "first")
+        second = backend_module(":libs:second", "second")
+
+        plan = module_release.build_plan(
+            graph(first, second),
+            graph(first, second),
+            ["build.gradle.kts", "gradle/libs.versions.toml"],
+            enforce_pr_scope=True,
+        )
+
+        self.assertEqual(
+            [module["artifactId"] for module in plan["affected"]],
+            ["first", "second"],
+        )
+
     @patch("module_release.latest_stable_tag", return_value=None)
     def test_pr_single_module_policy_allows_other_module_build_gradle_changes(self, _: object) -> None:
         first = backend_module(":libs:first", "first")

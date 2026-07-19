@@ -1,0 +1,88 @@
+name: Backend PR
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "develop/**"
+    paths:
+      - "backend/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: backend-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Plan and build affected backend modules
+    runs-on: ubuntu-latest
+    env:
+      GH_PACKAGES_USERNAME: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          path: head
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Checkout PR base
+        uses: actions/checkout@v4
+        with:
+          path: base
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test backend release planner
+        working-directory: head/backend
+        run: python3 -m unittest discover -s tools/release -p 'test_*.py' -v
+
+      - name: Generate base module graph
+        working-directory: base/backend
+        run: |
+          mkdir -p build
+          ./gradlew --no-daemon -q printModuleGraph > build/module-graph.json
+
+      - name: Generate head module graph
+        working-directory: head/backend
+        run: |
+          mkdir -p build
+          ./gradlew --no-daemon -q printModuleGraph > build/module-graph.json
+
+      - name: Plan and validate PR scope
+        id: plan
+        working-directory: head/backend
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 tools/release/module_release.py plan \
+            --base-graph ../../base/backend/build/module-graph.json \
+            --head-graph build/module-graph.json \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --enforce-single-pr-module \
+            --enforce-pr-scope \
+            --output build/release-plan.json
+
+      - name: Build affected modules by dependency layer
+        if: steps.plan.outputs.has_affected == 'true'
+        working-directory: head/backend
+        run: |
+          python3 tools/release/module_release.py build \
+            --plan build/release-plan.json
