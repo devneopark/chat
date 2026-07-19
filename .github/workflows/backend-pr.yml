@@ -1,0 +1,102 @@
+name: "백엔드 PR 검증"
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'develop/backend/**'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: backend-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scope_check:
+    name: "변경 범위 검증"
+    runs-on: ubuntu-latest
+    outputs:
+      has_affected: ${{ steps.calculate.outputs.has_affected }}
+      affected_projects: ${{ steps.calculate.outputs.affected_projects }}
+    env:
+      GH_PACKAGES_USERNAME: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: "저장소 가져오기"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: "자바 설정"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: "Gradle 설정"
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: "Kotlin 컴파일러 설정"
+        env:
+          KOTLIN_VERSION: "2.3.21"
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip" \
+            --output "$RUNNER_TEMP/kotlin.zip"
+          unzip -q "$RUNNER_TEMP/kotlin.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/kotlinc/bin" >> "$GITHUB_PATH"
+
+      - name: "Kotlin 스크립트로 변경 범위 검증"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: kotlinc -script .github/workflows/scripts/backend/validate-pull-request.kts
+
+      - name: "영향 모듈 계산"
+        id: calculate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          kotlinc -script
+          .github/workflows/scripts/backend/calculate-affected-modules.kts
+          -- --output backend/build/affected-modules.tsv
+
+      - name: "stable 버전 및 SNAPSHOT 의존성 검증"
+        run: >-
+          kotlinc -script
+          .github/workflows/scripts/backend/validate-stable-versions.kts
+          -- --input backend/build/affected-modules.tsv
+
+  backend-build:
+    name: "백엔드 빌드"
+    needs: scope_check
+    if: needs.scope_check.outputs.has_affected == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_PACKAGES_USERNAME: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: "저장소 가져오기"
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: "자바 설정"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: "Gradle 설정"
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: "영향 모듈 및 다운스트림 빌드"
+        working-directory: backend
+        run: ./gradlew --no-daemon ${{ needs.scope_check.outputs.affected_projects }}
