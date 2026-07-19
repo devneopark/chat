@@ -7,7 +7,7 @@
 실시간 채팅 서비스의 서버 애플리케이션을 구성하는 백엔드 프로젝트입니다.
 
 백엔드는 사용자와 채팅방을 관리하는 HTTP API, 클라이언트와 실시간 메시지를 주고받는 메시징 게이트웨이,
-그리고 여러 실행 모듈이 공유하는 도메인 라이브러리로 구성합니다.
+그리고 여러 실행 모듈이 공유하는 도메인 및 shared 라이브러리로 구성합니다.
 
 단일 백엔드 코드베이스 안에서 도메인 경계를 명확히 나누고, 실행 애플리케이션의 책임을 분리합니다.
 
@@ -42,13 +42,15 @@ modules/libs/domains/<DOMAIN_NAME>
 
 실행 애플리케이션에서 함께 사용하는 도메인 단위 라이브러리입니다.
 
-현재는 `user`, `room` 도메인 영역을 기준으로 모듈을 나누고, 각 도메인 안에서 모델, 이벤트, 참조 타입을 분리합니다.
+서비스 기능이 확장되면 도메인 경계와 코드의 역할에 따라 필요한 라이브러리 모듈을 추가합니다.
+모든 도메인에 동일한 하위 모듈을 미리 만들지 않고, 독립적인 책임과 실제 구현이 생긴 단위만 모듈로 분리합니다.
 
 ## 2. 설계 방향
 
 - 실행 가능한 서버 애플리케이션은 `services` 하위에 둡니다.
-- 도메인 공통 코드는 `libs/domains` 하위에 둡니다.
-- 도메인 모듈은 `model`, `event`, `reference` 역할로 나눕니다.
+- 도메인별 코드는 `libs/domains` 하위에 둡니다.
+- 여러 도메인에서 함께 쓰는 기반 계약은 `libs/shared` 하위에 둡니다.
+- 도메인 모듈은 필요한 역할에 따라 `model`, `reference`, `service` 등으로 나눕니다.
 - Spring Boot 실행 JAR은 실제 서비스 모듈에서만 생성합니다.
 
 ## 3. 모듈 구조
@@ -56,18 +58,14 @@ modules/libs/domains/<DOMAIN_NAME>
 ```text
 modules/
 ├── libs/
-│   └── domains/
-│       ├── room/
-│       │   ├── event/
-│       │   ├── model/
-│       │   └── reference/
-│       └── user/
-│           ├── event/
-│           ├── model/
-│           └── reference/
+│   ├── domains/
+│   │   └── <DOMAIN_NAME>/
+│   │       ├── <MODULE_ROLE>/
+│   │       └── ...
+│   └── shared/
+│       └── <SHARED_MODULE>/
 └── services/
-    ├── messaging-gateway/
-    └── rest-api/
+    └── <SERVICE_NAME>/
 ```
 
 ## 4. 기술 스택
@@ -88,122 +86,58 @@ modules/
 
 ```shell
 # user 도메인 모델 모듈 빌드
-./gradlew :modules:libs:domains:user:model:build
+./gradlew :libs:domain-user-model:build
 
 # rest-api 서비스 모듈 빌드
-./gradlew :modules:services:rest-api:build
+./gradlew :services:rest-api:build
 ```
 
 ## 6. 버전, 의존성, 배포 전략
 
-이 프로젝트는 각 모듈을 독립적인 배포 단위로 다룹니다.
-
+각 모듈을 독립적인 배포 단위로 다룹니다.
 라이브러리 모듈은 다른 모듈에서 Gradle 의존성으로 소비할 수 있어야 하므로 GitHub Packages의 Maven registry에 배포합니다.
 실행 모듈은 다른 모듈의 라이브러리 의존성으로 쓰지 않고 독립 실행 가능한 Spring Boot `bootJar` 산출물로 배포하므로
 GitHub Release asset으로 배포합니다.
 
-GitHub Releases는 tag 기준의 배포 이력, 릴리즈 노트, 실행 가능한 바이너리 다운로드 지점을 관리하는 용도로 사용합니다.
-GitHub Packages는 Maven/Gradle이 `group:artifact:version` 좌표로 resolve할 수 있는 패키지 저장소로 사용합니다.
+### 6.1. 배포 채널
 
-### 6.1. 버전 카탈로그
+backend 모듈 변경이 `develop` 또는 `main`에 push되면 affected 모듈을 다음 채널로 배포합니다.
 
-모듈 간 의존성 좌표와 버전은 Gradle version catalog인 `gradle/libs.versions.toml`에서 관리합니다.
+| 대상 브랜치 | 채널 | 배포 버전 |
+| --- | --- | --- |
+| `develop` | SNAPSHOT | `x.y.z-SNAPSHOT` |
+| `main` | stable | `x.y.z` |
 
-```toml
-[versions]
-shared-kernel = "0.1.0"
-domain-user-model = "0.1.0"
+### 6.2. 버전과 내부 의존성
 
-[libraries]
-shared-kernel = { module = "com.devneopark.chat:shared-kernel", version.ref = "shared-kernel" }
-domain-user-model = { module = "com.devneopark.chat:domain-user-model", version.ref = "domain-user-model" }
-```
-
-모듈이 다른 내부 모듈을 의존할 때는 `project(":modules:...")` 의존성을 기본으로 사용하지 않습니다.
-이미 GitHub Packages에 배포된 Maven artifact를 version catalog alias로 참조합니다.
+모듈의 base 버전과 내부 artifact 좌표는 각 `build.gradle.kts`에 직접 명시합니다.
 
 ```kotlin
+version = "0.0.2"
+
 dependencies {
-    implementation(libs.shared.kernel)
-    implementation(libs.domain.user.model)
+    implementation("com.devneopark.chat.backend:domain-room-reference:0.0.2-SNAPSHOT")
 }
 ```
 
-이 원칙은 배포된 artifact 간의 실제 호환성을 빌드 단계에서 검증하기 위한 것입니다.
-로컬 개발 편의를 위해 `mavenLocal()` 또는 composite build를 임시로 사용할 수는 있지만,
-CI와 release workflow에서는 GitHub Packages에 배포된 좌표를 기준으로 resolve합니다.
+내부 모듈은 `project(...)`가 아니라 GitHub Packages의 Maven artifact로 소비합니다.
+버전은 자동 갱신되지 않으므로 특별한 고정 사유가 없다면 최신 게시 버전을 사용합니다.
+호환되지 않는 upstream 변경은 먼저 배포한 뒤 downstream의 의존성과 코드를 갱신합니다.
 
-### 6.2. 모듈 좌표
+### 6.3. PR, 버전, affected 모듈
 
-모든 배포 대상 모듈은 고정된 Maven 좌표를 가집니다.
+- PR은 실질적인 backend 모듈 변경을 하나만 포함합니다. 기존 모듈의 dependency 선언 변경은 이 제한에서 제외합니다.
+- 소스·공개 계약·동작이 바뀌면 base 버전을 올립니다. dependency 좌표만 정렬할 때는 기존 SNAPSHOT 버전을 유지할 수 있습니다.
+- SNAPSHOT은 재배포할 수 있지만 stable 버전은 덮어쓸 수 없습니다. stable 배포는 SNAPSHOT 내부 의존성을 허용하지 않습니다.
+- 변경 모듈과 이를 직간접적으로 의존하는 모듈을 affected 처리하며, upstream에서 downstream 순서로 검증·배포합니다.
 
-```text
-group: com.devneopark.chat
-artifact: <module-artifact-name>
-version: <module-version>
-```
+### 6.4. 등록과 배포 대상
 
-artifact 이름은 GitHub Packages의 Maven registry 제약을 고려해 소문자, 숫자, 하이픈만 사용합니다.
+`settings.gradle.kts`는 `modules/libs/**`와 `modules/services/**`의 `build.gradle.kts`를 탐색해 모듈을 등록합니다.
 
-예시:
+| 모듈 | 산출물 | 배포 위치 |
+| --- | --- | --- |
+| 라이브러리 | Maven artifact | GitHub Packages |
+| 실행 모듈 | Spring Boot `bootJar` | GitHub Release asset |
 
-```text
-com.devneopark.chat:shared-kernel:0.1.0
-com.devneopark.chat:domain-user-model:0.1.0
-com.devneopark.chat:domain-user-event:0.1.0
-com.devneopark.chat:rest-api:0.1.0
-com.devneopark.chat:messaging-gateway:0.1.0
-```
-
-### 6.3. 배포 대상
-
-라이브러리 모듈:
-
-```text
-modules/libs/**
-```
-
-- `maven-publish`로 GitHub Packages Maven registry에 배포합니다.
-- 다른 모듈은 version catalog에 선언된 Maven 좌표로 이 artifact를 가져옵니다.
-- GitHub Release는 tag와 release note를 남기는 기준점으로 사용할 수 있지만, 주 배포 artifact 저장소는 GitHub Packages입니다.
-
-실행 모듈:
-
-```text
-modules/services/rest-api
-modules/services/messaging-gateway
-```
-
-- Spring Boot `bootJar`로 실행 가능한 jar를 생성합니다.
-- 생성된 bootJar 파일을 GitHub Release asset으로 업로드합니다.
-- 실행 모듈의 bootJar는 다른 모듈의 `implementation(...)` 의존성으로 사용하지 않습니다.
-
-### 6.4. 태그 규칙
-
-모듈별 독립 릴리즈를 전제로 태그에는 모듈 이름과 버전을 함께 포함합니다.
-
-```text
-shared-kernel-v0.1.0
-domain-user-model-v0.1.0
-domain-user-event-v0.1.0
-rest-api-v0.1.0
-messaging-gateway-v0.1.0
-```
-
-릴리즈 workflow는 태그 이름에서 대상 모듈과 버전을 파싱하고, version catalog 또는 Gradle의 `project.version`과 일치하는지 검증합니다.
-태그의 버전과 빌드 설정의 버전이 다르면 배포하지 않습니다.
-
-### 6.5. 실행 모듈 런타임 버전
-
-실행 모듈은 빌드 시점의 `project.version`을 Spring Boot build info에 주입합니다.
-애플리케이션 런타임에서는 `BuildProperties`를 통해 현재 실행 중인 artifact 버전을 확인할 수 있어야 합니다.
-
-```kotlin
-springBoot {
-    buildInfo {
-        properties {
-            version = project.version.toString()
-        }
-    }
-}
-```
+릴리즈 태그는 `backend/<libs|services>/<artifact-id>/v<version>` 형식을 사용합니다.

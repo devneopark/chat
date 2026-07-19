@@ -1,18 +1,56 @@
 rootProject.name = "chat"
 
-include(":modules:libs:domains:message:model")
-include(":modules:libs:domains:message:event")
-include(":modules:libs:domains:message:reference")
+fun artifactIdFor(moduleDirectory: File): Pair<String, String> {
+    val segments = moduleDirectory
+        .relativeTo(rootDir)
+        .invariantSeparatorsPath
+        .split('/')
+    require(segments.size >= 3 && segments[0] == "modules") {
+        "Unsupported backend module directory: $moduleDirectory"
+    }
+    val type = when (segments[1]) {
+        "libs" -> "libs"
+        "services" -> "services"
+        else -> error("Module must be under modules/libs or modules/services: $moduleDirectory")
+    }
+    val artifactSegments = if (type == "libs") {
+        segments.drop(2).map { segment -> if (segment == "domains") "domain" else segment }
+    } else {
+        segments.drop(2)
+    }
+    return type to artifactSegments.joinToString("-")
+}
 
-include(":modules:libs:domains:room:model")
-include(":modules:libs:domains:room:event")
-include(":modules:libs:domains:room:reference")
+val moduleDirectories = listOf(
+    rootDir.resolve("modules/libs"),
+    rootDir.resolve("modules/services"),
+)
+    .filter(File::isDirectory)
+    .flatMap { moduleRoot ->
+        moduleRoot
+            .walkTopDown()
+            .filter { directory ->
+                directory.isDirectory && directory.resolve("build.gradle.kts").isFile
+            }
+            .toList()
+    }
+    .distinct()
+    .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
 
-include(":modules:libs:domains:user:model")
-include(":modules:libs:domains:user:event")
-include(":modules:libs:domains:user:reference")
+val registeredProjectPaths = mutableSetOf<String>()
+moduleDirectories.forEach { moduleDirectory ->
+    val (type, artifactId) = artifactIdFor(moduleDirectory)
+    val projectPath = ":$type:$artifactId"
+    require(registeredProjectPaths.add(projectPath)) {
+        "Duplicate backend artifactId: $artifactId"
+    }
+    include(projectPath)
+    project(projectPath).projectDir = moduleDirectory
+}
 
-include(":modules:libs:shared:kernel")
-
-include(":modules:services:rest-api")
-include(":modules:services:messaging-gateway")
+if (findProject(":libs") != null) {
+    project(":libs").projectDir = rootDir.resolve("modules/libs")
+}
+if (findProject(":services") != null) {
+    project(":services").projectDir = rootDir.resolve("modules/services")
+}
