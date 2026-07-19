@@ -99,4 +99,4 @@ jobs:
 
       - name: "영향 모듈 및 다운스트림 빌드"
         working-directory: backend
-        run: ./gradlew --no-daemon ${{ needs.scope_check.outputs.affected_projects }}
+        run: sh ./gradlew --no-daemon ${{ needs.scope_check.outputs.affected_projects }}

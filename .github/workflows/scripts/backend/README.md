@@ -1,4 +1,4 @@
-# 백엔드 PR 검증 스크립트
+# 백엔드 워크플로 스크립트
 
 이 디렉터리는 GitHub Actions에서만 사용하는 백엔드 검증 스크립트를 보관한다.
 
@@ -12,6 +12,7 @@
 kotlinc -script .github/workflows/scripts/backend/validate-pull-request.kts
 kotlinc -script .github/workflows/scripts/backend/calculate-affected-modules.kts
 kotlinc -script .github/workflows/scripts/backend/validate-stable-versions.kts
+kotlinc -script .github/workflows/scripts/backend/publish-backend.kts
 ```
 
 실행 위치는 저장소 루트이며, PR 이벤트에서 다음 환경변수를 제공해야 한다.
@@ -21,9 +22,15 @@ kotlinc -script .github/workflows/scripts/backend/validate-stable-versions.kts
 - `BASE_SHA`: PR 기준 커밋 SHA
 - `HEAD_SHA`: PR 변경 커밋 SHA
 - `GITHUB_STEP_SUMMARY`: GitHub Actions 요약 파일 경로
-- `GITHUB_TOKEN`: GitHub Packages 및 Releases 조회 토큰
+- `GITHUB_TOKEN`: GitHub Packages 및 Releases 조회·배포 토큰
 - `GITHUB_REPOSITORY_OWNER`: GitHub Packages 소유자
 - `GITHUB_REPOSITORY`: GitHub 저장소 좌표
+
+배포 이벤트에서는 다음 환경변수도 제공해야 한다.
+
+- `RELEASE_CHANNEL`: `snapshot` 또는 `stable`
+- `AFFECTED_MODULES_FILE`: 영향 모듈 TSV 경로
+- `GITHUB_SHA`: 배포 대상 커밋 SHA
 
 ## 변경 범위 정책
 
@@ -42,3 +49,9 @@ Gradle 프로젝트만 실행한다.
 - 영향 모듈의 stable 버전이 GitHub Packages 또는 GitHub Release에 이미 존재하면 PR을 실패시킨다.
 - stable 버전이 배포된 내부 모듈을 `-SNAPSHOT`으로 참조하면 PR을 실패시킨다.
 - 해당 모듈의 의존성은 즉시 stable 버전으로 교체해야 한다.
+
+## 배포 워크플로
+
+- `backend-develop-publish.yml`: `develop/backend/**`의 SNAPSHOT 배포
+- `backend-main-publish.yml`: `main`의 stable 배포
+- 라이브러리는 GitHub Packages, 서비스는 GitHub Releases에 배포한다.
