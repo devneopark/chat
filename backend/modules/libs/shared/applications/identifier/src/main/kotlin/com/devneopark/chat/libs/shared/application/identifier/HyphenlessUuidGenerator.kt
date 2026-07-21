@@ -8,7 +8,7 @@ class HyphenlessUuidGenerator: IdGenerator {
 
     private val replacement = ""
 
-    override fun generate(): String {
+    override suspend fun generate(): String {
         return UUID.randomUUID()
             .toString()
             .replace(regex, replacement)
