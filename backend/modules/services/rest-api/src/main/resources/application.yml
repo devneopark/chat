@@ -1,0 +1,19 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: rest_api
+
+  profiles:
+    active:
+      - ${ACTIVE_PROFILE:local}
+    group:
+      test:
+        - test
+      local:
+        - local
+      dev:
+        - dev
+      prod:
+        - prod
