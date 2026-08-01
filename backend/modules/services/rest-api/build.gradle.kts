@@ -23,6 +23,7 @@ dependencies {
     // kotlin
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
     testImplementation("org.testcontainers:testcontainers-postgresql")
