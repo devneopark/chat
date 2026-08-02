@@ -9,4 +9,5 @@ spring:
 
 logging:
   level:
+    com.devneopark.chat: trace
     org.springframework.r2dbc.core: debug

@@ -1,0 +1,32 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: test
+    pool:
+      min-idle: 10
+      max-size: 20
+
+  sql:
+    init:
+      mode: always
+      data-locations:
+        - classpath:init/data.sql
+
+chat:
+  domain:
+    user:
+      service:
+        validation:
+          credential:
+            pattern:
+              principal: ^[a-zA-Z0-9._-]{4,32}$
+              password: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[a-zA-Z0-9-=₩`~!@#$%^&*()_+\[\]\\{}|;':\",./<>?]{8,32}$
+          profile:
+            pattern:
+              displayName: ^.{1,10}$
+
+logging:
+  level:
+    com.devneopark.chat: trace
+    org.springframework.r2dbc.core: debug

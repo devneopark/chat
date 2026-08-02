@@ -17,3 +17,7 @@ spring:
         - dev
       prod:
         - prod
+
+  output:
+    ansi:
+      enabled: always
