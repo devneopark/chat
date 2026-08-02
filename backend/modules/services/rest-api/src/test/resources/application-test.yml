@@ -1,0 +1,13 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - init/schema.sql
+      data-locations:
+        - init/data.sql
+
+logging:
+  level:
+    com.devneopark.chat: trace
+    org.springframework.r2dbc.core: debug
