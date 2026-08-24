@@ -34,7 +34,7 @@ class RegisterUserController(
         return ResponseEntity.ok(response)
     }
 
-    @RestControllerAdvice
+    @RestControllerAdvice(assignableTypes = [ RegisterUserController::class ])
     class Advice {
 
         @ExceptionHandler(DomainRuleViolationException::class)
