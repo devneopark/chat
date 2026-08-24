@@ -39,4 +39,18 @@ interface UserEntityRepository : CoroutineCrudRepository<UserEntity, String> {
     )
     suspend fun existsByPrincipal(principal: String): Boolean
 
+    @Query(
+        """
+        select
+            id,
+            principal,
+            password_hash,
+            display_name
+        from users
+        where principal = :principal
+          and withdrawn_at is null
+        """
+    )
+    suspend fun findByPrincipal(principal: String): UserEntity?
+
 }
