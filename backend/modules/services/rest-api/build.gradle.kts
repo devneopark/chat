@@ -6,6 +6,8 @@ dependencies {
     implementation("com.devneopark.chat.backend:shared-applications-exception:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:shared-applications-identifier:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:shared-domain-exception:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat.backend:domain-authentication-grant-reference:0.0.1-SNAPSHOT")
+    implementation("com.devneopark.chat.backend:domain-authentication-grant-model:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-user-reference:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-user-model:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-user-service:0.0.1-SNAPSHOT")
