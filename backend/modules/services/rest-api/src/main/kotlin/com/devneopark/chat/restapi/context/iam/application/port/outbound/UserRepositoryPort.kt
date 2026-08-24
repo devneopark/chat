@@ -10,6 +10,8 @@ interface UserRepositoryPort {
     // Read
     suspend fun existsByPrincipal(principal: String): Boolean
 
+    suspend fun findByPrincipal(principal: String): User?
+
     // Update
 
     // Delete

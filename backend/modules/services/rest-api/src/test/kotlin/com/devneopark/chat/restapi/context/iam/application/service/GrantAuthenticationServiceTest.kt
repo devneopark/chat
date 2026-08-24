@@ -1,0 +1,285 @@
+package com.devneopark.chat.restapi.context.iam.application.service
+
+import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
+import com.devneopark.chat.lib.domain.user.model.Credential
+import com.devneopark.chat.lib.domain.user.model.Profile
+import com.devneopark.chat.lib.domain.user.model.User
+import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
+import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
+import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
+import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.willDoNothing
+import org.mockito.BDDMockito.willThrow
+import org.mockito.InjectMocks
+import org.mockito.Mock
+import org.mockito.Mockito.only
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
+import org.mockito.Mockito.mockingDetails
+import org.mockito.junit.jupiter.MockitoExtension
+import java.time.Clock
+import java.time.Instant
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.toKotlinInstant
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition as UserExceptionDefinition
+import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition as IamExceptionDefinition
+
+@ExtendWith(MockitoExtension::class)
+class GrantAuthenticationServiceTest {
+
+    @Mock
+    lateinit var userCredentialValidator: UserCredentialValidator
+
+    @Mock
+    lateinit var userRepositoryPort: UserRepositoryPort
+
+    @Mock
+    lateinit var passwordHasher: PasswordHasher
+
+    @Mock
+    lateinit var clock: Clock
+
+    @Mock
+    lateinit var authenticationCredentialManager: AuthenticationCredentialManager
+
+    @Mock
+    lateinit var idGenerator: IdGenerator
+
+    @Mock
+    lateinit var authenticationGrantRepositoryPort: AuthenticationGrantRepositoryPort
+
+    @InjectMocks
+    lateinit var grantAuthenticationService: GrantAuthenticationService
+
+    @Test
+    fun `인증에 성공하면 credential을 발급하고 grant를 저장한 뒤 결과를 반환한다`() = runTest {
+        // given
+        val command = GrantAuthenticationUseCase.Command(
+            "principal",
+            "RawP@ssword123"
+        )
+        val user = User(
+            User.Id("user-001"),
+            Credential(command.principal, "hashed-password"),
+            Profile("Neo")
+        )
+        val issuedAt = Instant.parse("2026-08-11T00:00:00Z")
+        val now = issuedAt.toKotlinInstant()
+        val accessExpiresAt = now + 15.minutes
+        val renewalExpiresAt = now + 7.days
+        val credentialSet = AuthenticationCredentialManager.CredentialSet(
+            AuthenticationCredentialManager.AccessCredentialInfo(
+                "access-token",
+                "access-jti-001",
+                accessExpiresAt
+            ),
+            AuthenticationCredentialManager.RenewalCredentialInfo(
+                "renewal-id-001",
+                renewalExpiresAt
+            )
+        )
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePrincipal(command.principal)
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePassword(command.rawPassword)
+        given(userRepositoryPort.findByPrincipal(command.principal))
+            .willReturn(user)
+        given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
+            .willReturn(true)
+        given(clock.instant())
+            .willReturn(issuedAt)
+        given(authenticationCredentialManager.issue(user.id, now))
+            .willReturn(credentialSet)
+        given(idGenerator.generate())
+            .willReturn("grant-001")
+
+        // when
+        val result = grantAuthenticationService.grant(command)
+
+        // then
+        assertEquals("user-001", result.userId)
+        assertEquals("access-token", result.accessCredential.serializedValue)
+        assertEquals(accessExpiresAt, result.accessCredential.expiresAt)
+        assertEquals("renewal-id-001", result.renewalCredential.serializedValue)
+        assertEquals(renewalExpiresAt, result.renewalCredential.expiresAt)
+
+        val insertInvocations = mockingDetails(authenticationGrantRepositoryPort)
+            .invocations
+            .filter { it.method.name == "insert" }
+        assertEquals(1, insertInvocations.size)
+        val grant = insertInvocations.single().arguments.single() as AuthenticationGrant
+        assertEquals("grant-001", grant.id.value)
+        assertEquals("user-001", grant.userId.value)
+        assertEquals(now, grant.issuedAt)
+        assertEquals("access-jti-001", grant.accessCredential.id.value)
+        assertEquals(now, grant.accessCredential.issuedAt)
+        assertEquals(accessExpiresAt, grant.accessCredential.willExpiresAt)
+        assertEquals("renewal-id-001", grant.renewalCredential.id.value)
+        assertEquals(now, grant.renewalCredential.issuedAt)
+        assertEquals(renewalExpiresAt, grant.renewalCredential.willExpiresAt)
+    }
+
+    @Test
+    fun `principal 입력값 검사를 통과하지 못하면 이후 인증 절차를 수행하지 않는다`() = runTest {
+        // given
+        val command = GrantAuthenticationUseCase.Command(
+            "pr!nc!pa/",
+            "RawP@ssword123"
+        )
+        given(userCredentialValidator.validatePrincipal(command.principal))
+            .willThrow(
+                DomainRuleViolationException(
+                    UserExceptionDefinition.INVALID_USER_PRINCIPAL.code,
+                    UserExceptionDefinition.INVALID_USER_PRINCIPAL.message
+                )
+            )
+
+        // when
+        val exception = assertFailsWith<DomainRuleViolationException> {
+            grantAuthenticationService.grant(command)
+        }
+
+        // then
+        assertEquals(UserExceptionDefinition.INVALID_USER_PRINCIPAL.code, exception.code)
+        assertEquals(UserExceptionDefinition.INVALID_USER_PRINCIPAL.message, exception.message)
+        verify(userCredentialValidator, only())
+            .validatePrincipal(command.principal)
+        verifyNoInteractions(
+            userRepositoryPort,
+            passwordHasher,
+            clock,
+            authenticationCredentialManager,
+            idGenerator,
+            authenticationGrantRepositoryPort
+        )
+    }
+
+    @Test
+    fun `password 입력값 검사를 통과하지 못하면 이후 인증 절차를 수행하지 않는다`() = runTest {
+        // given
+        val command = GrantAuthenticationUseCase.Command(
+            "principal",
+            "password"
+        )
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePrincipal(command.principal)
+        willThrow(
+            DomainRuleViolationException(
+                UserExceptionDefinition.INVALID_USER_PASSWORD.code,
+                UserExceptionDefinition.INVALID_USER_PASSWORD.message
+            )
+        ).given(userCredentialValidator)
+            .validatePassword(command.rawPassword)
+
+        // when
+        val exception = assertFailsWith<DomainRuleViolationException> {
+            grantAuthenticationService.grant(command)
+        }
+
+        // then
+        assertEquals(UserExceptionDefinition.INVALID_USER_PASSWORD.code, exception.code)
+        assertEquals(UserExceptionDefinition.INVALID_USER_PASSWORD.message, exception.message)
+        verify(userCredentialValidator)
+            .validatePassword(command.rawPassword)
+        verifyNoInteractions(
+            userRepositoryPort,
+            passwordHasher,
+            clock,
+            authenticationCredentialManager,
+            idGenerator,
+            authenticationGrantRepositoryPort
+        )
+    }
+
+    @Test
+    fun `사용자를 찾지 못하면 USER_NOT_FOUND 예외를 던지고 credential을 발급하지 않는다`() = runTest {
+        // given
+        val command = GrantAuthenticationUseCase.Command(
+            "principal",
+            "RawP@ssword123"
+        )
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePrincipal(command.principal)
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePassword(command.rawPassword)
+        given(userRepositoryPort.findByPrincipal(command.principal))
+            .willReturn(null)
+
+        // when
+        val exception = assertFailsWith<IamContextException> {
+            grantAuthenticationService.grant(command)
+        }
+
+        // then
+        assertEquals(IamExceptionDefinition.USER_NOT_FOUND.code, exception.code)
+        assertEquals(IamExceptionDefinition.USER_NOT_FOUND.message, exception.message)
+        verify(userRepositoryPort, only())
+            .findByPrincipal(command.principal)
+        verifyNoInteractions(
+            passwordHasher,
+            clock,
+            authenticationCredentialManager,
+            idGenerator,
+            authenticationGrantRepositoryPort
+        )
+    }
+
+    @Test
+    fun `비밀번호가 일치하지 않으면 WRONG_PASSWORD 예외를 던지고 credential을 발급하지 않는다`() = runTest {
+        // given
+        val command = GrantAuthenticationUseCase.Command(
+            "principal",
+            "RawP@ssword123"
+        )
+        val user = User(
+            User.Id("user-001"),
+            Credential(command.principal, "hashed-password"),
+            Profile("Neo")
+        )
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePrincipal(command.principal)
+        willDoNothing()
+            .given(userCredentialValidator)
+            .validatePassword(command.rawPassword)
+        given(userRepositoryPort.findByPrincipal(command.principal))
+            .willReturn(user)
+        given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
+            .willReturn(false)
+
+        // when
+        val exception = assertFailsWith<IamContextException> {
+            grantAuthenticationService.grant(command)
+        }
+
+        // then
+        assertEquals(IamExceptionDefinition.WRONG_PASSWORD.code, exception.code)
+        assertEquals(IamExceptionDefinition.WRONG_PASSWORD.message, exception.message)
+        verify(passwordHasher, only())
+            .matches(command.rawPassword, user.credential.passwordHash)
+        verifyNoInteractions(
+            clock,
+            authenticationCredentialManager,
+            idGenerator,
+            authenticationGrantRepositoryPort
+        )
+    }
+
+}
