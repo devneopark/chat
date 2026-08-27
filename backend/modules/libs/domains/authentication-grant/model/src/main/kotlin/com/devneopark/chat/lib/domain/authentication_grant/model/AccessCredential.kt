@@ -24,6 +24,10 @@ class AccessCredential(
         checkExpirationTimestamp(willExpiresAt, issuedAt)
     }
 
+    internal fun isUsableAt(now: Instant): Boolean {
+        return now in issuedAt ..< willExpiresAt
+    }
+
     private fun checkExpirationTimestamp(willExpiresAt: Instant, issuedAt: Instant) {
         if (willExpiresAt <= issuedAt) {
             val exceptionDefinition = ExceptionDefinition.INVALID_ACCESS_CREDENTIAL_EXPIRATION

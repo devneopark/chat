@@ -8,7 +8,7 @@ import kotlin.time.Instant
 /**
  * 현재 로그인 세션에서 사용할 Renewal Credential.
  *
- * Rotation 시 이전 credential은 애그리거트와 영속 모델에서 제거되므로 소비 시각을
+ * 재발급 시 이전 credential은 애그리거트와 영속 모델에서 제거되므로 소비 시각을
  * 현재 상태로 보관하지 않는다. 제출된 credential의 유효성은 현재 credential ID와의 일치 여부로 판단한다.
  */
 class RenewalCredential(
