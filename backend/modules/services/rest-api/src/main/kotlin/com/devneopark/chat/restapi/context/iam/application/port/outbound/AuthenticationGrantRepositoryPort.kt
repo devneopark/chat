@@ -17,4 +17,6 @@ interface AuthenticationGrantRepositoryPort {
     // Delete
     suspend fun deleteByJti(jti: String)
 
+    suspend fun deleteByRenewalCredentialId(renewalCredentialId: String)
+
 }

@@ -52,6 +52,7 @@ class RenewalAuthenticationService(
         val credentialSet = authenticationCredentialManager.issue(grantId, userId, now)
 
         authenticationGrantRepositoryPort.insert(credentialSet.authenticationGrant)
+        authenticationGrantRepositoryPort.deleteByRenewalCredentialId(renewalCredentialId)
 
         return RenewalAuthenticationUseCase.Result(
             userId.value,

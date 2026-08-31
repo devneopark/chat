@@ -33,4 +33,8 @@ class AuthenticationGrantRepositoryAdapter(
         authenticationGrantEntityRepository.deleteByAcJti(jti)
     }
 
+    override suspend fun deleteByRenewalCredentialId(renewalCredentialId: String) {
+        authenticationGrantEntityRepository.deleteByRcId(renewalCredentialId)
+    }
+
 }

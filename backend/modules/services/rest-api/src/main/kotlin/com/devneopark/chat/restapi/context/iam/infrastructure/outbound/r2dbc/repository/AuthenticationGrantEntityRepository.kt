@@ -81,4 +81,14 @@ interface AuthenticationGrantEntityRepository : CoroutineCrudRepository<Authenti
     )
     suspend fun deleteByAcJti(acJti: String)
 
+    @Modifying
+    @Query(
+        """
+        delete
+        from authentication_grant
+        where rc_id = :rcId
+        """
+    )
+    suspend fun deleteByRcId(rcId: String)
+
 }
