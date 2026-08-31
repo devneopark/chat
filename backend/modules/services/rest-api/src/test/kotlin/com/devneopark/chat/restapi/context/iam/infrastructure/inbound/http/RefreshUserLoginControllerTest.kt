@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
+import org.mockito.Mockito.verifyNoInteractions
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.context.annotation.Import
@@ -73,6 +74,10 @@ class RefreshUserLoginControllerTest {
             .expectHeader()
             .value(HttpHeaders.SET_COOKIE) {
                 Assertions.assertTrue(it.contains("SRTID=renewal-token"))
+                Assertions.assertTrue(it.contains("Max-Age=1320"))
+                Assertions.assertTrue(it.contains("Secure"))
+                Assertions.assertTrue(it.contains("HttpOnly"))
+                Assertions.assertTrue(it.contains("SameSite=Lax"))
             }
             .expectBody<RefreshUserLoginApi.Response>()
             .returnResult()
@@ -105,6 +110,8 @@ class RefreshUserLoginControllerTest {
             .exchange()
             .expectStatus()
             .isBadRequest()
+            .expectHeader()
+            .doesNotExist(HttpHeaders.SET_COOKIE)
             .expectBody<ExceptionResponse>()
             .returnResult()
             .responseBody!!
@@ -113,6 +120,26 @@ class RefreshUserLoginControllerTest {
         Assertions.assertNotNull(responseBody)
         Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, responseBody.code)
         Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, responseBody.message)
+        verifyNoInteractions(clock)
+    }
+
+    @Test
+    fun `refresh token 쿠키가 없으면 오류 응답을 반환한다`() = runTest {
+        // when
+        val responseBody = webTestClient.put()
+            .uri("/authentications")
+            .exchange()
+            .expectStatus()
+            .isBadRequest()
+            .expectBody<ExceptionResponse>()
+            .returnResult()
+            .responseBody!!
+
+        // then
+        Assertions.assertNotNull(responseBody)
+        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, responseBody.code)
+        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, responseBody.message)
+        verifyNoInteractions(renewalAuthenticationUseCase, clock)
     }
 
 }
