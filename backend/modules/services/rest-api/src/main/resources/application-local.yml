@@ -29,10 +29,16 @@ chat:
   infrastructure:
     auth:
       jwt:
+        type: JWT
         secretKey: VjFSS2IyRkhVa1JOV0U1cFRXczFiMWxyVFhoalYxRjZWVmhTYWsxdGVIVlpiVEZ6WkZad05VMVljR0ZXTURVMVYyeG9VbVJIUlhsV2FsVTk=
         ttlMillis: 30_000 # 30 * 1,000 = 30 seconds
       refreshToken:
         ttlMillis: 60_000 # 60 * 1,000 = 1 minute
+      cookie:
+        name: SRTID
+        httpOnly: true
+        secure: true
+        sameSite: Lax
 
 logging:
   level:
