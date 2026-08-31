@@ -110,4 +110,32 @@ class AuthenticationGrantRepositoryAdapterTest {
         assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialId("seed-renewal-id-001"))
     }
 
+    @Test
+    fun `renewal credential id로 grant를 삭제하면 access와 renewal 조회 결과가 모두 사라진다`() = runTest {
+        // given
+        val grant = AuthenticationGrant(
+            AuthenticationGrant.Id("grant-002"),
+            User.Id("user-002"),
+            Instant.parse("2026-08-11T00:00:00Z"),
+            AccessCredential(
+                AccessCredential.Id("access-jti-002"),
+                Instant.parse("2026-08-11T00:00:01Z"),
+                Instant.parse("2026-08-11T00:15:01Z")
+            ),
+            RenewalCredential(
+                RenewalCredential.Id("renewal-id-002"),
+                Instant.parse("2026-08-11T00:00:02Z"),
+                Instant.parse("2026-08-18T00:00:02Z")
+            )
+        )
+        authenticationGrantRepositoryAdapter.insert(grant)
+
+        // when
+        authenticationGrantRepositoryAdapter.deleteByRenewalCredentialId("renewal-id-002")
+
+        // then
+        assertNull(authenticationGrantRepositoryAdapter.findByJti("access-jti-002"))
+        assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialId("renewal-id-002"))
+    }
+
 }
