@@ -1,6 +1,7 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.controller
 
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
+import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.specification.RefreshUserLoginApi
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.server.MissingRequestValueException
 import java.time.Clock
 import kotlin.time.toJavaDuration
 import kotlin.time.toJavaInstant
@@ -76,6 +78,15 @@ class RefreshUserLoginController(
 
     @RestControllerAdvice(assignableTypes = [ RefreshUserLoginController::class ])
     class Advice {
+
+        @ExceptionHandler(MissingRequestValueException::class)
+        suspend fun on(exception: MissingRequestValueException): ResponseEntity<ExceptionResponse> {
+            val httpStatus = HttpStatus.BAD_REQUEST
+            val exceptionDefinition = ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL
+            val response = ExceptionResponse(exceptionDefinition.code, exceptionDefinition.message)
+            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
+            return ResponseEntity.status(httpStatus).body(response)
+        }
 
         @ExceptionHandler(DomainRuleViolationException::class)
         suspend fun on(exception: DomainRuleViolationException): ResponseEntity<ExceptionResponse> {
