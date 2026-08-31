@@ -17,6 +17,7 @@ class NimbusConfigTest {
     fun `base64 secret으로 HS512 JWT encoder를 생성한다`() {
         // given
         val jwtProperties = NimbusAuthenticationCredentialManager.JwtProperties(
+            type = "JWT",
             encodedSecretKey = "VjFSS2IyRkhVa1JOV0U1cFRXczFiMWxyVFhoalYxRjZWVmhTYWsxdGVIVlpiVEZ6WkZad05VMVljR0ZXTURVMVYyeG9VbVJIUlhsV2FsVTk=",
             ttlMillis = 30_000
         )

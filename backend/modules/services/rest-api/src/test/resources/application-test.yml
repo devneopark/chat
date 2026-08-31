@@ -7,6 +7,15 @@ spring:
       data-locations:
         - init/data.sql
 
+chat:
+  infrastructure:
+    auth:
+      cookie:
+        name: SRTID
+        httpOnly: true
+        secure: true
+        sameSite: Lax
+
 logging:
   level:
     com.devneopark.chat: trace

@@ -24,6 +24,7 @@ class NimbusAuthenticationCredentialManagerTest {
         // given
         val encodedSecretKey = "VjFSS2IyRkhVa1JOV0U1cFRXczFiMWxyVFhoalYxRjZWVmhTYWsxdGVIVlpiVEZ6WkZad05VMVljR0ZXTURVMVYyeG9VbVJIUlhsV2FsVTk="
         val jwtProperties = NimbusAuthenticationCredentialManager.JwtProperties(
+            type = "JWT",
             encodedSecretKey = encodedSecretKey,
             ttlMillis = 30.seconds.inWholeMilliseconds
         )

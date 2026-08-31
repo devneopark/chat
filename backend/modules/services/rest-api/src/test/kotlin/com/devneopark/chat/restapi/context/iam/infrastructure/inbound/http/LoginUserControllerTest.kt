@@ -80,7 +80,7 @@ class LoginUserControllerTest {
             .isOk()
             .expectHeader()
             .value(HttpHeaders.SET_COOKIE) {
-                assertTrue(it.contains("refreshToken=renewal-token"))
+                assertTrue(it.contains("SRTID=renewal-token"))
             }
             .expectBody<LoginUserApi.Response>()
             .returnResult()
