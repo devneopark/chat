@@ -34,7 +34,7 @@ class NimbusAuthenticationCredentialManager(
         now: Instant
     ): AuthenticationCredentialManager.CredentialSet {
         val header = JwsHeader.with(MacAlgorithm.HS512)
-            .type("JWT")
+            .type(jwtProperties.type)
             .build()
         val jti = UUID.randomUUID().toString()
         val accessCredentialExpiresAt = now + jwtProperties.ttlMillis.milliseconds
@@ -77,6 +77,9 @@ class NimbusAuthenticationCredentialManager(
 
     @Component
     data class JwtProperties (
+
+        @Value($$"${chat.infrastructure.auth.jwt.type}")
+        val type: String,
 
         @Value($$"${chat.infrastructure.auth.jwt.secretKey}")
         val encodedSecretKey: String,
