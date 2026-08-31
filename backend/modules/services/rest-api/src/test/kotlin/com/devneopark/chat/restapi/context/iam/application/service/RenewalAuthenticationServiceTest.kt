@@ -10,7 +10,6 @@ import com.devneopark.chat.restapi.context.iam.application.exception.IamContextE
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
-import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth.NimbusAuthenticationCredentialManager
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -41,7 +40,7 @@ class RenewalAuthenticationServiceTest {
     lateinit var clock: Clock
 
     @Mock
-    lateinit var authenticationCredentialManager: NimbusAuthenticationCredentialManager
+    lateinit var authenticationCredentialManager: AuthenticationCredentialManager
 
     @Mock
     lateinit var idGenerator: IdGenerator
