@@ -1,5 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth
 
+import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.lib.domain.user.model.User
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -40,29 +41,39 @@ class NimbusAuthenticationCredentialManagerTest {
                 .build(),
             renewalCredentialProperties
         )
+        val grantId = AuthenticationGrant.Id("grant-001")
         val userId = User.Id("user-001")
         val issuedAt = Instant.fromEpochSeconds(System.currentTimeMillis() / 1_000)
 
         // when
-        val result = manager.issue(userId, issuedAt)
+        val result = manager.issue(grantId, userId, issuedAt)
 
         // then
-        val accessCredential = result.accessCredentialInfo
-        val renewalCredential = result.renewalCredentialInfo
-        assertTrue(accessCredential.serializedValue.isNotBlank())
-        assertTrue(accessCredential.id.isNotBlank())
-        assertNotEquals(accessCredential.id, renewalCredential.id)
-        assertEquals(issuedAt + 30.seconds, accessCredential.expiresAt)
-        assertEquals(issuedAt + 7.minutes, renewalCredential.expiresAt)
+        val authenticationGrant = result.authenticationGrant
+        val accessCredential = authenticationGrant.accessCredential
+        val renewalCredential = authenticationGrant.renewalCredential
+        assertTrue(result.serializedCredentialValue.isNotBlank())
+        assertTrue(result.serializedRenewalCredentialValue.isNotBlank())
+        assertNotEquals(accessCredential.id.value, renewalCredential.id.value)
+        assertEquals(result.serializedRenewalCredentialValue, renewalCredential.id.value)
+        assertEquals(issuedAt + 30.seconds, result.accessCredentialExpiresAt)
+        assertEquals(issuedAt + 7.minutes, result.renewalCredentialExpiresAt)
+        assertEquals(grantId, authenticationGrant.id)
+        assertEquals(userId, authenticationGrant.userId)
+        assertEquals(issuedAt, authenticationGrant.issuedAt)
+        assertEquals(issuedAt, accessCredential.issuedAt)
+        assertEquals(result.accessCredentialExpiresAt, accessCredential.willExpiresAt)
+        assertEquals(issuedAt, renewalCredential.issuedAt)
+        assertEquals(result.renewalCredentialExpiresAt, renewalCredential.willExpiresAt)
 
         val decoder = NimbusJwtDecoder.withSecretKey(secretKey)
             .macAlgorithm(MacAlgorithm.HS512)
             .build()
-        val jwt = decoder.decode(accessCredential.serializedValue)
+        val jwt = decoder.decode(result.serializedCredentialValue)
         assertEquals(userId.value, jwt.subject)
-        assertEquals(accessCredential.id, jwt.id)
+        assertEquals(accessCredential.id.value, jwt.id)
         assertEquals(issuedAt.toJavaInstant(), jwt.issuedAt)
-        assertEquals(accessCredential.expiresAt.toJavaInstant(), jwt.expiresAt)
+        assertEquals(result.accessCredentialExpiresAt.toJavaInstant(), jwt.expiresAt)
         assertEquals("JWT", jwt.headers["typ"])
         assertEquals(MacAlgorithm.HS512.name, jwt.headers["alg"])
     }

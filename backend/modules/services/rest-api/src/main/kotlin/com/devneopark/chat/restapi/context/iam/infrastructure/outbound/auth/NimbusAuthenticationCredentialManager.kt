@@ -1,5 +1,8 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth
 
+import com.devneopark.chat.lib.domain.authentication_grant.model.AccessCredential
+import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
+import com.devneopark.chat.lib.domain.authentication_grant.model.RenewalCredential
 import com.devneopark.chat.lib.domain.user.reference.UserId
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import org.springframework.beans.factory.annotation.Value
@@ -10,9 +13,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.stereotype.Component
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
-import kotlin.time.toKotlinInstant
 
 @Component
 class NimbusAuthenticationCredentialManager(
@@ -26,6 +29,7 @@ class NimbusAuthenticationCredentialManager(
 ) : AuthenticationCredentialManager {
 
     override suspend fun issue(
+        grantId: AuthenticationGrant.Id,
         userId: UserId,
         now: Instant
     ): AuthenticationCredentialManager.CredentialSet {
@@ -33,30 +37,42 @@ class NimbusAuthenticationCredentialManager(
             .type("JWT")
             .build()
         val jti = UUID.randomUUID().toString()
-        val now = now.toJavaInstant()
-        val expiresAt = now.plusMillis(jwtProperties.ttlMillis)
+        val accessCredentialExpiresAt = now + jwtProperties.ttlMillis.milliseconds
         val claims = JwtClaimsSet.builder()
             .id(jti)
             .subject(userId.value)
-            .issuedAt(now)
-            .expiresAt(expiresAt)
+            .issuedAt(now.toJavaInstant())
+            .expiresAt(accessCredentialExpiresAt.toJavaInstant())
             .build()
         val parameters = JwtEncoderParameters.from(header, claims)
         val jwt = jwtEncoder.encode(parameters)
-        val accessCredentialInfo = AuthenticationCredentialManager.AccessCredentialInfo(
+
+        val accessCredentialId = AccessCredential.Id(jti)
+        val renewedId = UUID.randomUUID().toString()
+        val renewalCredentialId = RenewalCredential.Id(renewedId)
+        val renewalCredentialExpiresAt = now + renewalCredentialProperties.ttlMillis.milliseconds
+        val authenticationGrant = AuthenticationGrant(
+            grantId,
+            userId,
+            now,
+            AccessCredential(
+                accessCredentialId,
+                now,
+                accessCredentialExpiresAt
+            ),
+            RenewalCredential(
+                renewalCredentialId,
+                now,
+                renewalCredentialExpiresAt
+            )
+        )
+        return AuthenticationCredentialManager.CredentialSet(
+            authenticationGrant,
             jwt.tokenValue,
-            jti,
-            expiresAt.toKotlinInstant()
+            renewedId,
+            accessCredentialExpiresAt,
+            renewalCredentialExpiresAt
         )
-
-        val renewalCredentialId = UUID.randomUUID().toString()
-        val renewalCredentialExpiresAt = now.plusMillis(renewalCredentialProperties.ttlMillis)
-        val renewalCredentialInfo = AuthenticationCredentialManager.RenewalCredentialInfo(
-            renewalCredentialId,
-            renewalCredentialExpiresAt.toKotlinInstant()
-        )
-
-        return AuthenticationCredentialManager.CredentialSet(accessCredentialInfo, renewalCredentialInfo)
     }
 
     @Component

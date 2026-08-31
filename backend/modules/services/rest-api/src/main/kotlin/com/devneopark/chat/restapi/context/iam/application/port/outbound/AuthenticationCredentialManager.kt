@@ -1,35 +1,24 @@
 package com.devneopark.chat.restapi.context.iam.application.port.outbound
 
+import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.lib.domain.user.reference.UserId
 import kotlin.time.Instant
 
 interface AuthenticationCredentialManager {
 
-    suspend fun issue(userId: UserId, now: Instant): CredentialSet
+    suspend fun issue(grantId: AuthenticationGrant.Id, userId: UserId, now: Instant): CredentialSet
 
     data class CredentialSet(
 
-        val accessCredentialInfo: AccessCredentialInfo,
+        val authenticationGrant: AuthenticationGrant,
 
-        val renewalCredentialInfo: RenewalCredentialInfo
+        val serializedCredentialValue: String,
 
-    )
+        val serializedRenewalCredentialValue: String,
 
-    data class AccessCredentialInfo(
+        val accessCredentialExpiresAt: Instant,
 
-        val serializedValue: String,
-
-        val id: String,
-
-        val expiresAt: Instant
-
-    )
-
-    data class RenewalCredentialInfo(
-
-        val id: String,
-
-        val expiresAt: Instant
+        val renewalCredentialExpiresAt: Instant
 
     )
 

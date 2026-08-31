@@ -1,8 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.application.service
 
-import com.devneopark.chat.lib.domain.authentication_grant.model.AccessCredential
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
-import com.devneopark.chat.lib.domain.authentication_grant.model.RenewalCredential
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
@@ -61,41 +59,19 @@ class GrantAuthenticationService(
         }
 
         val now = clock.instant().toKotlinInstant()
-        val credentialSet = authenticationCredentialManager.issue(user.id, now)
-
         val grantId = AuthenticationGrant.Id(idGenerator.generate())
-        val accessCredentialInfo = credentialSet.accessCredentialInfo
-        val accessCredentialId = AccessCredential.Id(accessCredentialInfo.id)
-        val renewalCredentialInfo = credentialSet.renewalCredentialInfo
-        val renewalCredentialId = RenewalCredential.Id(renewalCredentialInfo.id)
-        val accessCredential = AccessCredential(
-            accessCredentialId,
-            now,
-            accessCredentialInfo.expiresAt
-        )
-        val renewalCredential = RenewalCredential(
-            renewalCredentialId,
-            now,
-            renewalCredentialInfo.expiresAt
-        )
-        val authenticationGrant = AuthenticationGrant(
-            grantId,
-            user.id,
-            now,
-            accessCredential,
-            renewalCredential
-        )
-        authenticationGrantRepositoryPort.insert(authenticationGrant)
+        val credentialSet = authenticationCredentialManager.issue(grantId, user.id, now)
+        authenticationGrantRepositoryPort.insert(credentialSet.authenticationGrant)
 
         return GrantAuthenticationUseCase.Result(
             user.id.value,
             GrantAuthenticationUseCase.Credential(
-                accessCredentialInfo.serializedValue,
-                accessCredential.willExpiresAt
+                credentialSet.serializedCredentialValue,
+                credentialSet.accessCredentialExpiresAt
             ),
             GrantAuthenticationUseCase.Credential(
-                renewalCredentialInfo.id,
-                renewalCredential.willExpiresAt
+                credentialSet.authenticationGrant.renewalCredential.id.value,
+                credentialSet.renewalCredentialExpiresAt
             )
         )
     }

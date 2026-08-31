@@ -1,6 +1,8 @@
 package com.devneopark.chat.restapi.context.iam.application.service
 
+import com.devneopark.chat.lib.domain.authentication_grant.model.AccessCredential
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
+import com.devneopark.chat.lib.domain.authentication_grant.model.RenewalCredential
 import com.devneopark.chat.lib.domain.user.model.Credential
 import com.devneopark.chat.lib.domain.user.model.Profile
 import com.devneopark.chat.lib.domain.user.model.User
@@ -16,6 +18,8 @@ import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRep
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.ArgumentMatchers.argThat
+import org.mockito.ArgumentMatchers.eq
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willDoNothing
 import org.mockito.BDDMockito.willThrow
@@ -24,7 +28,6 @@ import org.mockito.Mock
 import org.mockito.Mockito.only
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
-import org.mockito.Mockito.mockingDetails
 import org.mockito.junit.jupiter.MockitoExtension
 import java.time.Clock
 import java.time.Instant
@@ -79,16 +82,28 @@ class GrantAuthenticationServiceTest {
         val now = issuedAt.toKotlinInstant()
         val accessExpiresAt = now + 15.minutes
         val renewalExpiresAt = now + 7.days
-        val credentialSet = AuthenticationCredentialManager.CredentialSet(
-            AuthenticationCredentialManager.AccessCredentialInfo(
-                "access-token",
-                "access-jti-001",
+        val grantId = AuthenticationGrant.Id("grant-001")
+        val authenticationGrant = AuthenticationGrant(
+            grantId,
+            user.id,
+            now,
+            AccessCredential(
+                AccessCredential.Id("access-jti-001"),
+                now,
                 accessExpiresAt
             ),
-            AuthenticationCredentialManager.RenewalCredentialInfo(
-                "renewal-id-001",
+            RenewalCredential(
+                RenewalCredential.Id("renewal-id-001"),
+                now,
                 renewalExpiresAt
             )
+        )
+        val credentialSet = AuthenticationCredentialManager.CredentialSet(
+            authenticationGrant,
+            "access-token",
+            "renewal-id-001",
+            accessExpiresAt,
+            renewalExpiresAt
         )
         willDoNothing()
             .given(userCredentialValidator)
@@ -102,10 +117,16 @@ class GrantAuthenticationServiceTest {
             .willReturn(true)
         given(clock.instant())
             .willReturn(issuedAt)
-        given(authenticationCredentialManager.issue(user.id, now))
-            .willReturn(credentialSet)
         given(idGenerator.generate())
             .willReturn("grant-001")
+        given(
+            authenticationCredentialManager.issue(
+                argThat<AuthenticationGrant.Id> { it.value == grantId.value } ?: grantId,
+                eq(user.id) ?: user.id,
+                eq(now) ?: now
+            )
+        )
+            .willReturn(credentialSet)
 
         // when
         val result = grantAuthenticationService.grant(command)
@@ -117,20 +138,8 @@ class GrantAuthenticationServiceTest {
         assertEquals("renewal-id-001", result.renewalCredential.serializedValue)
         assertEquals(renewalExpiresAt, result.renewalCredential.expiresAt)
 
-        val insertInvocations = mockingDetails(authenticationGrantRepositoryPort)
-            .invocations
-            .filter { it.method.name == "insert" }
-        assertEquals(1, insertInvocations.size)
-        val grant = insertInvocations.single().arguments.single() as AuthenticationGrant
-        assertEquals("grant-001", grant.id.value)
-        assertEquals("user-001", grant.userId.value)
-        assertEquals(now, grant.issuedAt)
-        assertEquals("access-jti-001", grant.accessCredential.id.value)
-        assertEquals(now, grant.accessCredential.issuedAt)
-        assertEquals(accessExpiresAt, grant.accessCredential.willExpiresAt)
-        assertEquals("renewal-id-001", grant.renewalCredential.id.value)
-        assertEquals(now, grant.renewalCredential.issuedAt)
-        assertEquals(renewalExpiresAt, grant.renewalCredential.willExpiresAt)
+        verify(authenticationGrantRepositoryPort, only())
+            .insert(authenticationGrant)
     }
 
     @Test
