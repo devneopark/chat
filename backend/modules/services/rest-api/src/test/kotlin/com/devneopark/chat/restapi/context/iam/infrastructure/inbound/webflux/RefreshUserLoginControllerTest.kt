@@ -5,7 +5,9 @@ import com.devneopark.chat.restapi.context.iam.application.exception.IamContextE
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RefreshUserLoginController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RefreshUserLoginApi
+import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionDefinition as WebFluxExceptionDefinition
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
@@ -27,7 +29,7 @@ import kotlin.time.toJavaInstant
 
 @ActiveProfiles("test")
 @WebFluxTest(controllers = [ RefreshUserLoginController::class ])
-@Import(TraceIdAssigningFilter::class, RefreshUserLoginController::class)
+@Import(TraceIdAssigningFilter::class, WebFluxGlobalExceptionAdvice::class, RefreshUserLoginController::class)
 class RefreshUserLoginControllerTest {
 
     @Autowired
@@ -137,8 +139,8 @@ class RefreshUserLoginControllerTest {
 
         // then
         Assertions.assertNotNull(responseBody)
-        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, responseBody.code)
-        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, responseBody.message)
+        Assertions.assertEquals(WebFluxExceptionDefinition.MISSING_REQUEST_VALUE.code, responseBody.code)
+        Assertions.assertEquals(WebFluxExceptionDefinition.MISSING_REQUEST_VALUE.message, responseBody.message)
         verifyNoInteractions(renewalAuthenticationUseCase, clock)
     }
 

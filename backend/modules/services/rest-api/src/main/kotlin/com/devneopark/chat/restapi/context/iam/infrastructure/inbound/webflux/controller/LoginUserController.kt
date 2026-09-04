@@ -1,26 +1,17 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller
 
-import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
-import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.bind.annotation.RestControllerAdvice
 import java.time.Clock
 import kotlin.time.toJavaDuration
 import kotlin.time.toJavaInstant
 import kotlin.time.toKotlinInstant
-
-private val logger = LoggerFactory.getLogger(LoginUserController::class.java)
 
 @RestController
 class LoginUserController(
@@ -76,26 +67,5 @@ class LoginUserController(
         val sameSite: String
 
     )
-
-    @RestControllerAdvice(assignableTypes = [ LoginUserController::class ])
-    class Advice {
-
-        @ExceptionHandler(DomainRuleViolationException::class)
-        suspend fun on(exception: DomainRuleViolationException): ResponseEntity<ExceptionResponse> {
-            val httpStatus = HttpStatus.BAD_REQUEST
-            val response = ExceptionResponse(exception.code, exception.message)
-            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
-            return ResponseEntity.status(httpStatus).body(response)
-        }
-
-        @ExceptionHandler(IamContextException::class)
-        suspend fun on(exception: IamContextException): ResponseEntity<ExceptionResponse> {
-            val httpStatus = HttpStatus.BAD_REQUEST
-            val response = ExceptionResponse(exception.code, exception.message)
-            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
-            return ResponseEntity.status(httpStatus).body(response)
-        }
-
-    }
 
 }

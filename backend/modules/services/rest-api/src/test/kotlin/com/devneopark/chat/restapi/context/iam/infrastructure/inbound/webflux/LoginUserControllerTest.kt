@@ -4,6 +4,7 @@ import com.devneopark.chat.restapi.context.iam.application.exception.IamContextE
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.LoginUserController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
+import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
@@ -28,7 +29,7 @@ import kotlin.test.assertTrue
 
 @ActiveProfiles("test")
 @WebFluxTest(controllers = [ LoginUserController::class ])
-@Import(TraceIdAssigningFilter::class, LoginUserController::class)
+@Import(TraceIdAssigningFilter::class, WebFluxGlobalExceptionAdvice::class, LoginUserController::class)
 class LoginUserControllerTest {
 
     @Autowired

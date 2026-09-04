@@ -18,4 +18,10 @@ enum class ExceptionDefinition(
 
     UNSUPPORTED_MEDIA_TYPE("3-001-005", "Unsupported media type."),
 
+    CONFLICT("3-001-006", "Conflict."),
+
+    SERVICE_UNAVAILABLE("3-001-007", "Service unavailable."),
+
+    MISSING_REQUEST_VALUE("3-001-008", "Request value missing."),
+
 }

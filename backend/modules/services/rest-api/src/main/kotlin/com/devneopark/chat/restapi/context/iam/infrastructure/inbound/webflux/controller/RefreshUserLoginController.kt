@@ -1,28 +1,17 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller
 
-import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RefreshUserLoginApi
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
-import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.bind.annotation.RestControllerAdvice
-import org.springframework.web.server.MissingRequestValueException
 import java.time.Clock
 import kotlin.time.toJavaDuration
 import kotlin.time.toJavaInstant
 import kotlin.time.toKotlinInstant
-
-private val logger = LoggerFactory.getLogger(RefreshUserLoginController::class.java)
 
 @RestController
 class RefreshUserLoginController(
@@ -75,35 +64,5 @@ class RefreshUserLoginController(
         val sameSite: String
 
     )
-
-    @RestControllerAdvice(assignableTypes = [ RefreshUserLoginController::class ])
-    class Advice {
-
-        @ExceptionHandler(MissingRequestValueException::class)
-        suspend fun on(exception: MissingRequestValueException): ResponseEntity<ExceptionResponse> {
-            val httpStatus = HttpStatus.BAD_REQUEST
-            val exceptionDefinition = ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL
-            val response = ExceptionResponse(exceptionDefinition.code, exceptionDefinition.message)
-            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
-            return ResponseEntity.status(httpStatus).body(response)
-        }
-
-        @ExceptionHandler(DomainRuleViolationException::class)
-        suspend fun on(exception: DomainRuleViolationException): ResponseEntity<ExceptionResponse> {
-            val httpStatus = HttpStatus.BAD_REQUEST
-            val response = ExceptionResponse(exception.code, exception.message)
-            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
-            return ResponseEntity.status(httpStatus).body(response)
-        }
-
-        @ExceptionHandler(IamContextException::class)
-        suspend fun on(exception: IamContextException): ResponseEntity<ExceptionResponse> {
-            val httpStatus = HttpStatus.BAD_REQUEST
-            val response = ExceptionResponse(exception.code, exception.message)
-            logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, exception)
-            return ResponseEntity.status(httpStatus).body(response)
-        }
-
-    }
 
 }

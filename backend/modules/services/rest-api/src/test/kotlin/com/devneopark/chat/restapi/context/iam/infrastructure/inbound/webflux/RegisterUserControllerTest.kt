@@ -3,6 +3,7 @@ package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RegisterUserController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RegisterUserApi
+import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import kotlinx.coroutines.test.runTest
@@ -19,7 +20,7 @@ import org.springframework.test.web.reactive.server.expectBody
 
 @ActiveProfiles("test")
 @WebFluxTest(controllers = [ RegisterUserController::class ])
-@Import(TraceIdAssigningFilter::class, RegisterUserController::class)
+@Import(TraceIdAssigningFilter::class, WebFluxGlobalExceptionAdvice::class, RegisterUserController::class)
 class RegisterUserControllerTest {
 
     @Autowired
