@@ -1,7 +1,5 @@
 package com.devneopark.chat.restapi.framework.advice
 
-import com.devneopark.chat.libs.shared.application.exception.ApplicationConflictException
-import com.devneopark.chat.libs.shared.application.exception.ApplicationUnavailableException
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.lib.shared.kernel.exception.ExceptionBase
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
@@ -94,14 +92,6 @@ class WebFluxGlobalExceptionAdvice {
         return ResponseEntity.status(httpStatus).body(response)
     }
 
-    @ExceptionHandler(ApplicationConflictException::class)
-    suspend fun on(cause: ApplicationConflictException): ResponseEntity<ExceptionResponse> {
-        val httpStatus = HttpStatus.CONFLICT
-        val response = ExceptionResponse(cause.code, cause.message)
-        logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
-        return ResponseEntity.status(httpStatus).body(response)
-    }
-
     @ExceptionHandler(DuplicateKeyException::class)
     suspend fun on(cause: DuplicateKeyException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.CONFLICT
@@ -110,14 +100,6 @@ class WebFluxGlobalExceptionAdvice {
             exceptionDefinition.code,
             exceptionDefinition.message
         )
-        logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
-        return ResponseEntity.status(httpStatus).body(response)
-    }
-
-    @ExceptionHandler(ApplicationUnavailableException::class)
-    suspend fun on(cause: ApplicationUnavailableException): ResponseEntity<ExceptionResponse> {
-        val httpStatus = HttpStatus.SERVICE_UNAVAILABLE
-        val response = ExceptionResponse(cause.code, cause.message)
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
