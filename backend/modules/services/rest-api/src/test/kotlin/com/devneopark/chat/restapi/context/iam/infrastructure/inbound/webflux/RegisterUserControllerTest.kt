@@ -1,10 +1,10 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http
+package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.controller.RegisterUserController
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.specification.RegisterUserApi
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.FieldBindingExceptionResponse
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.TraceIdAssigningFilter
+import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RegisterUserController
+import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RegisterUserApi
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test

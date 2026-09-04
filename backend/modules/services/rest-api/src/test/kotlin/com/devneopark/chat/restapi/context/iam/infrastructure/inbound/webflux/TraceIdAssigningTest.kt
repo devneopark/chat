@@ -1,6 +1,6 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http
+package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.TraceIdAssigningFilter
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest

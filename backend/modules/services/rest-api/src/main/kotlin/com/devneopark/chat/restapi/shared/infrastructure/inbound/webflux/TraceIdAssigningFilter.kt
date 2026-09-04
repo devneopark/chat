@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.shared.infrastructure.inbound.http
+package com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux
 
 import com.devneopark.chat.libs.shared.application.identifier.HyphenlessUuidGenerator
 import org.springframework.core.Ordered

@@ -1,10 +1,10 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.controller
+package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller
 
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.specification.LoginUserApi
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.ExceptionResponse
+import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders

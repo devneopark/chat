@@ -1,12 +1,12 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http
+package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.controller.LoginUserController
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.http.specification.LoginUserApi
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.ExceptionResponse
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.FieldBindingExceptionResponse
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.http.TraceIdAssigningFilter
+import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.LoginUserController
+import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
