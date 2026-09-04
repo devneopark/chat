@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.bootstrap.config
+package com.devneopark.chat.restapi.framework.config
 
 import com.devneopark.chat.libs.shared.application.identifier.HyphenlessUuidGenerator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator

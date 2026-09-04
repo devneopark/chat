@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.bootstrap.aop
+package com.devneopark.chat.restapi.framework.aop
 
 import com.devneopark.chat.libs.shared.application.exception.ApplicationConflictException
 import com.devneopark.chat.libs.shared.application.exception.ApplicationUnavailableException

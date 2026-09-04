@@ -1,6 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth
 
-import com.devneopark.chat.restapi.bootstrap.config.NimbusConfig
+import com.devneopark.chat.restapi.framework.config.NimbusConfig
 import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
 import kotlinx.coroutines.test.runTest

@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.bootstrap.config
+package com.devneopark.chat.restapi.framework.config
 
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.domain.user.service.UserProfileValidator

@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.bootstrap.config
+package com.devneopark.chat.restapi.framework.config
 
 import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth.NimbusAuthenticationCredentialManager
 import org.junit.jupiter.api.Test

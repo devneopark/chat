@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.bootstrap.config
+package com.devneopark.chat.restapi.framework.config
 
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.EnableAspectJAutoProxy
