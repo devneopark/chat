@@ -49,4 +49,37 @@ class NimbusConfigTest {
         assertEquals(MacAlgorithm.HS512.name, jwt.headers["alg"])
     }
 
+    @Test
+    fun `base64 secret으로 HS512 JWT decoder를 생성한다`() {
+        // given
+        val jwtProperties = NimbusAuthenticationCredentialManager.JwtProperties(
+            type = "JWT",
+            encodedSecretKey = "VjFSS2IyRkhVa1JOV0U1cFRXczFiMWxyVFhoalYxRjZWVmhTYWsxdGVIVlpiVEZ6WkZad05VMVljR0ZXTURVMVYyeG9VbVJIUlhsV2FsVTk=",
+            ttlMillis = 30_000
+        )
+        val jwt = NimbusConfig()
+            .jwtEncoder(jwtProperties)
+            .encode(
+                JwtEncoderParameters.from(
+                    JwsHeader.with(MacAlgorithm.HS512)
+                        .type("JWT")
+                        .build(),
+                    JwtClaimsSet.builder()
+                        .subject("user-001")
+                        .id("access-jti-001")
+                        .build()
+                )
+            )
+
+        // when
+        val decodedJwt = NimbusConfig()
+            .jwtDecoder(jwtProperties)
+            .decode(jwt.tokenValue)
+
+        // then
+        assertEquals("user-001", decodedJwt.subject)
+        assertEquals("access-jti-001", decodedJwt.id)
+        assertEquals(MacAlgorithm.HS512.name, decodedJwt.headers["alg"])
+    }
+
 }
