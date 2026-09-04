@@ -16,6 +16,8 @@ enum class ExceptionDefinition(
 
     INVALID_RENEWAL_CREDENTIAL("2-001-004", "Invalid renewal credential."),
 
+    INVALID_ACCESS_CREDENTIAL("2-001-005", "Invalid access credential."),
+
     ;
 
 }
