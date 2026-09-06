@@ -55,6 +55,62 @@ class WebFluxSecurityConfigTest {
     }
 
     @Test
+    fun `isAnonymous 자원은 인증되지 않은 사용자에게 허용된다`() {
+        webTestClient.get()
+            .uri("/anonymous-only")
+            .exchange()
+            .expectStatus()
+            .isOk
+    }
+
+    @Test
+    fun `isAnonymous 자원은 인증된 사용자에게 거부된다`() = runTest {
+        // given
+        val serializedCredential = "access-token"
+        given(authenticateAccessCredentialUseCase.authenticate(
+            AuthenticateAccessCredentialUseCase.Command(serializedCredential)
+        )).willReturn(
+            AuthenticateAccessCredentialUseCase.Result("user-001", "access-jti-001")
+        )
+
+        // when
+        webTestClient.get()
+            .uri("/anonymous-only")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $serializedCredential")
+            .exchange()
+            .expectStatus()
+            .isForbidden
+    }
+
+    @Test
+    fun `permitAll 자원은 인증되지 않은 사용자에게 허용된다`() {
+        webTestClient.get()
+            .uri("/all-users")
+            .exchange()
+            .expectStatus()
+            .isOk
+    }
+
+    @Test
+    fun `permitAll 자원은 인증된 사용자에게도 허용된다`() = runTest {
+        // given
+        val serializedCredential = "access-token"
+        given(authenticateAccessCredentialUseCase.authenticate(
+            AuthenticateAccessCredentialUseCase.Command(serializedCredential)
+        )).willReturn(
+            AuthenticateAccessCredentialUseCase.Result("user-001", "access-jti-001")
+        )
+
+        // when
+        webTestClient.get()
+            .uri("/all-users")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $serializedCredential")
+            .exchange()
+            .expectStatus()
+            .isOk
+    }
+
+    @Test
     fun `유효한 access credential이면 보호 자원에 접근할 수 있다`() = runTest {
         // given
         val serializedCredential = "access-token"
@@ -173,15 +229,35 @@ class WebFluxSecurityConfigTest {
 
 }
 
+interface WebFluxSecurityTestApi {
+
+    @PreAuthorize("isAnonymous()")
+    suspend fun anonymousOnly(): ResponseEntity<Unit>
+
+    @PreAuthorize("permitAll()")
+    suspend fun allUsers(): ResponseEntity<Unit>
+
+    @PreAuthorize("isAuthenticated()")
+    suspend fun protected(): ResponseEntity<Unit>
+
+    @PreAuthorize("hasAuthority('required')")
+    suspend fun forbidden(): ResponseEntity<Unit>
+
+}
+
 @RestController
-class WebFluxSecurityTestController {
+class WebFluxSecurityTestController : WebFluxSecurityTestApi {
+
+    @GetMapping("/anonymous-only")
+    override suspend fun anonymousOnly(): ResponseEntity<Unit> = ResponseEntity.ok().build()
+
+    @GetMapping("/all-users")
+    override suspend fun allUsers(): ResponseEntity<Unit> = ResponseEntity.ok().build()
 
     @GetMapping("/protected")
-    @PreAuthorize("isAuthenticated()")
-    suspend fun protected(): ResponseEntity<Unit> = ResponseEntity.ok().build()
+    override suspend fun protected(): ResponseEntity<Unit> = ResponseEntity.ok().build()
 
     @GetMapping("/forbidden")
-    @PreAuthorize("hasAuthority('required')")
-    suspend fun forbidden(): ResponseEntity<Unit> = ResponseEntity.ok().build()
+    override suspend fun forbidden(): ResponseEntity<Unit> = ResponseEntity.ok().build()
 
 }

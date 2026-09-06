@@ -19,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper
 
 @Configuration
 @EnableWebFluxSecurity
-@EnableReactiveMethodSecurity
+@EnableReactiveMethodSecurity(proxyTargetClass = true)
 class WebFluxSecurityConfig(
 
     private val jsonMapper: JsonMapper,

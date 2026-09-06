@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.CookieValue
 import org.springframework.web.bind.annotation.PutMapping
 import java.time.Instant
@@ -14,6 +15,7 @@ interface RefreshUserLoginApi {
 
     @PutMapping("/authentications")
     @Operation(summary = "로그인 토큰 재발급")
+    @PreAuthorize("permitAll()")
     suspend fun refresh(
         @CookieValue(name = $$"${chat.infrastructure.auth.cookie.name}")
         refreshToken: String

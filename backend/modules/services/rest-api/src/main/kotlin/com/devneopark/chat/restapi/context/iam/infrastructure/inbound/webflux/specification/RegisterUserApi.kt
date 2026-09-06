@@ -8,6 +8,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 
@@ -16,6 +17,7 @@ interface RegisterUserApi {
 
     @PostMapping("/users")
     @Operation(summary = "회원가입 API")
+    @PreAuthorize("isAnonymous()")
     suspend fun register(@RequestBody @Valid body: Request): ResponseEntity<Response>
 
     @Schema(name = "Register user api request body", description = "회원가입에 필요한 정보")
