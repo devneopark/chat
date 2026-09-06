@@ -11,6 +11,7 @@ import org.springframework.dao.DuplicateKeyException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.transaction.TransactionException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -71,6 +72,14 @@ class WebFluxGlobalExceptionAdvice {
     suspend fun on(cause: IamContextException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST
         val response = ExceptionResponse(cause.code, cause.message)
+        logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
+        return ResponseEntity.status(httpStatus).body(response)
+    }
+
+    @ExceptionHandler(AccessDeniedException::class)
+    suspend fun on(cause: AccessDeniedException): ResponseEntity<ExceptionResponse> {
+        val httpStatus = HttpStatus.FORBIDDEN
+        val response = WebFluxErrorResponses.forbidden()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
