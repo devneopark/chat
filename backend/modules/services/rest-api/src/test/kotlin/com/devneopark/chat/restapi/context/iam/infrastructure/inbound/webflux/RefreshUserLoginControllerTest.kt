@@ -6,8 +6,8 @@ import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.co
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RefreshUserLoginApi
 import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionDefinition as WebFluxExceptionDefinition
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.WebFluxErrorResponses
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -135,8 +135,8 @@ class RefreshUserLoginControllerTest {
 
         // then
         Assertions.assertNotNull(responseBody)
-        Assertions.assertEquals(WebFluxExceptionDefinition.MISSING_REQUEST_VALUE.code, responseBody.code)
-        Assertions.assertEquals(WebFluxExceptionDefinition.MISSING_REQUEST_VALUE.message, responseBody.message)
+        Assertions.assertEquals(WebFluxErrorResponses.missingRequestValue().code, responseBody.code)
+        Assertions.assertEquals(WebFluxErrorResponses.missingRequestValue().message, responseBody.message)
         verifyNoInteractions(renewalAuthenticationUseCase, clock)
     }
 

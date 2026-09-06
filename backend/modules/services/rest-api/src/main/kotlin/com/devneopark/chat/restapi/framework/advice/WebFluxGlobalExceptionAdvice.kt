@@ -3,9 +3,9 @@ package com.devneopark.chat.restapi.framework.advice
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.lib.shared.kernel.exception.ExceptionBase
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
-import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionDefinition as WebFluxExceptionDefinition
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
+import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.WebFluxErrorResponses
 import org.springframework.dao.DataAccessException
 import org.springframework.dao.DuplicateKeyException
 import org.slf4j.LoggerFactory
@@ -29,11 +29,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(UnsupportedMediaTypeStatusException::class)
     suspend fun on(cause: UnsupportedMediaTypeStatusException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.UNSUPPORTED_MEDIA_TYPE
-        val exceptionDefinition = WebFluxExceptionDefinition.UNSUPPORTED_MEDIA_TYPE
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.unsupportedMediaType()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -41,11 +37,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(ServerWebInputException::class)
     suspend fun on(cause: ServerWebInputException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST
-        val exceptionDefinition = WebFluxExceptionDefinition.NO_REQUEST_BODY
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.noRequestBody()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -53,13 +45,8 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(WebExchangeBindException::class)
     suspend fun on(cause: WebExchangeBindException): ResponseEntity<FieldBindingExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST
-        val exceptionDefinition = WebFluxExceptionDefinition.FIELD_BINDING_FAILED
         val rejectedFields = cause.fieldErrors.map { it.field }
-        val response = FieldBindingExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message,
-            rejectedFields
-        )
+        val response = WebFluxErrorResponses.fieldBindingFailed(rejectedFields)
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -67,11 +54,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(MissingRequestValueException::class)
     suspend fun on(cause: MissingRequestValueException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST
-        val exceptionDefinition = WebFluxExceptionDefinition.MISSING_REQUEST_VALUE
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.missingRequestValue()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -95,11 +78,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(DuplicateKeyException::class)
     suspend fun on(cause: DuplicateKeyException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.CONFLICT
-        val exceptionDefinition = WebFluxExceptionDefinition.CONFLICT
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.conflict()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -107,11 +86,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(DataAccessException::class)
     suspend fun on(cause: DataAccessException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.SERVICE_UNAVAILABLE
-        val exceptionDefinition = WebFluxExceptionDefinition.SERVICE_UNAVAILABLE
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.serviceUnavailable()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -119,11 +94,7 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(TransactionException::class)
     suspend fun on(cause: TransactionException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.SERVICE_UNAVAILABLE
-        val exceptionDefinition = WebFluxExceptionDefinition.SERVICE_UNAVAILABLE
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.serviceUnavailable()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
@@ -131,22 +102,14 @@ class WebFluxGlobalExceptionAdvice {
     @ExceptionHandler(NoResourceFoundException::class)
     suspend fun on(): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.NOT_FOUND
-        val exceptionDefinition = WebFluxExceptionDefinition.NOT_FOUND
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.notFound()
         return ResponseEntity.status(httpStatus).body(response)
     }
 
     @ExceptionHandler(ResponseStatusException::class)
     suspend fun on(cause: ResponseStatusException): ResponseEntity<ExceptionResponse> {
         val httpStatus = cause.body.status
-        val exceptionDefinition = WebFluxExceptionDefinition.UNEXPECTED_ERROR
-        val response = ExceptionResponse(
-            exceptionDefinition.code,
-            exceptionDefinition.message
-        )
+        val response = WebFluxErrorResponses.unexpectedError()
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
         return ResponseEntity.status(httpStatus).body(response)
     }
