@@ -1,6 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswordException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.LoginUserController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
@@ -131,7 +131,7 @@ class LoginUserControllerTest {
             body.rawPassword!!
         )
         BDDMockito.given(grantAuthenticationUseCase.grant(command))
-            .willThrow(IamContextException("2-001-003", "Wrong password."))
+            .willThrow(WrongPasswordException())
 
         // when
         val responseBody = webTestClient.post()

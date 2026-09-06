@@ -4,7 +4,7 @@ import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.DuplicatedPrincipalException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition as UserExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition as IamExceptionDefinition
 
 @ExtendWith(MockitoExtension::class)
 class RegisterUserServiceTest {
@@ -218,13 +217,13 @@ class RegisterUserServiceTest {
             .willReturn(true)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<DuplicatedPrincipalException> {
             registerUserService.register(command)
         }
 
         // then
-        assertEquals(IamExceptionDefinition.DUPLICATED_PRINCIPAL.code, exception.code)
-        assertEquals(IamExceptionDefinition.DUPLICATED_PRINCIPAL.message, exception.message)
+        assertEquals("2-001-001", exception.code)
+        assertEquals("Principal duplicated.", exception.message)
         verify(userRepositoryPort, only())
             .existsByPrincipal(anyString())
         verifyNoInteractions(

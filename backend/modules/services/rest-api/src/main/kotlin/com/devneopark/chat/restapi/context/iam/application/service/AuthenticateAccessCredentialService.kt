@@ -1,7 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.application.service
 
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidAccessCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.AuthenticateAccessCredentialUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AccessCredentialVerifier
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -26,28 +25,16 @@ class AuthenticateAccessCredentialService(
         val verifiedCredential = accessCredentialVerifier.verify(command.serializedCredential)
         val authenticationGrant = authenticationGrantRepositoryPort.findByJti(verifiedCredential.jti)
             ?: run {
-                val exceptionDefinition = ExceptionDefinition.INVALID_ACCESS_CREDENTIAL
-                throw IamContextException(
-                    exceptionDefinition.code,
-                    exceptionDefinition.message
-                )
+                throw InvalidAccessCredentialException()
             }
 
         if (authenticationGrant.userId.value != verifiedCredential.userId) {
-            val exceptionDefinition = ExceptionDefinition.INVALID_ACCESS_CREDENTIAL
-            throw IamContextException(
-                exceptionDefinition.code,
-                exceptionDefinition.message
-            )
+            throw InvalidAccessCredentialException()
         }
 
         val now = clock.instant().toKotlinInstant()
         if (!authenticationGrant.isAccessCredentialUsable(now)) {
-            val exceptionDefinition = ExceptionDefinition.INVALID_ACCESS_CREDENTIAL
-            throw IamContextException(
-                exceptionDefinition.code,
-                exceptionDefinition.message
-            )
+            throw InvalidAccessCredentialException()
         }
 
         return AuthenticateAccessCredentialUseCase.Result(

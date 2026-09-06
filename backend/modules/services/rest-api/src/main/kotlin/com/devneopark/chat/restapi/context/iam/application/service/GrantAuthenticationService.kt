@@ -3,8 +3,8 @@ package com.devneopark.chat.restapi.context.iam.application.service
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.UserNotFoundException
+import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswordException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -41,21 +41,13 @@ class GrantAuthenticationService(
 
         val user = userRepositoryPort.findByPrincipal(command.principal)
             ?: run {
-                val exceptionDefinition = ExceptionDefinition.USER_NOT_FOUND
-                throw IamContextException(
-                    exceptionDefinition.code,
-                    exceptionDefinition.message
-                )
+                throw UserNotFoundException()
             }
 
         val passwordHash = user.credential.passwordHash
         val isPasswordMatches = passwordHasher.matches(command.rawPassword, passwordHash)
         if (!isPasswordMatches) {
-            val exceptionDefinition = ExceptionDefinition.WRONG_PASSWORD
-            throw IamContextException(
-                exceptionDefinition.code,
-                exceptionDefinition.message
-            )
+            throw WrongPasswordException()
         }
 
         val now = clock.instant().toKotlinInstant()

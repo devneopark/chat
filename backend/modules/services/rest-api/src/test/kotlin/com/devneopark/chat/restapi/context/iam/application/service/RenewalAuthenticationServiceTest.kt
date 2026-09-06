@@ -5,8 +5,7 @@ import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationG
 import com.devneopark.chat.lib.domain.authentication_grant.model.RenewalCredential
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidRenewalCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -127,27 +126,27 @@ class RenewalAuthenticationServiceTest {
     }
 
     @Test
-    fun `존재하지 않는 renewal credential이면 INVALID_RENEWAL_CREDENTIAL 예외를 던진다`() = runTest {
+    fun `존재하지 않는 renewal credential이면 InvalidRenewalCredentialException을 던진다`() = runTest {
         // given
         val command = RenewalAuthenticationUseCase.Command("missing-renewal-id")
         given(authenticationGrantRepositoryPort.findByRenewalCredentialId(command.renewalCredentialId))
             .willReturn(null)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidRenewalCredentialException> {
             renewalAuthenticationService.renewal(command)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-004", exception.code)
+        assertEquals("Invalid renewal credential.", exception.message)
         verify(authenticationGrantRepositoryPort, only())
             .findByRenewalCredentialId(command.renewalCredentialId)
         verifyNoInteractions(clock, authenticationCredentialManager, idGenerator)
     }
 
     @Test
-    fun `만료된 renewal credential이면 INVALID_RENEWAL_CREDENTIAL 예외를 던진다`() = runTest {
+    fun `만료된 renewal credential이면 InvalidRenewalCredentialException을 던진다`() = runTest {
         // given
         val issuedAt = Instant.parse("2026-08-11T00:00:00Z")
         val renewalExpiresAt = issuedAt + 1.minutes
@@ -173,13 +172,13 @@ class RenewalAuthenticationServiceTest {
             .willReturn(renewalExpiresAt.toJavaInstant())
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidRenewalCredentialException> {
             renewalAuthenticationService.renewal(command)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-004", exception.code)
+        assertEquals("Invalid renewal credential.", exception.message)
         verify(authenticationGrantRepositoryPort, only())
             .findByRenewalCredentialId(command.renewalCredentialId)
         verify(clock, only())

@@ -6,8 +6,7 @@ import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.DuplicatedPrincipalException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
@@ -37,11 +36,7 @@ class RegisterUserService(
 
         val isPrincipalDuplicated = userRepositoryPort.existsByPrincipal(command.principal)
         if (isPrincipalDuplicated) {
-            val exceptionDefinition = ExceptionDefinition.DUPLICATED_PRINCIPAL
-            throw IamContextException(
-                exceptionDefinition.code,
-                exceptionDefinition.message
-            )
+            throw DuplicatedPrincipalException()
         }
 
         val idValue = idGenerator.generate()

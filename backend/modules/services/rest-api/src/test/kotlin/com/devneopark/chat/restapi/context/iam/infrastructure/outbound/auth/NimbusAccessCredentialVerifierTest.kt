@@ -1,8 +1,7 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.auth
 
 import com.devneopark.chat.restapi.framework.config.NimbusConfig
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidAccessCredentialException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
@@ -90,13 +89,13 @@ class NimbusAccessCredentialVerifierTest {
         )
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             verifier.verify(serializedCredential)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
     @Test
@@ -132,13 +131,13 @@ class NimbusAccessCredentialVerifierTest {
         )
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             verifier.verify(serializedCredential)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
     @Test
@@ -172,13 +171,13 @@ class NimbusAccessCredentialVerifierTest {
         )
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             verifier.verify(serializedCredential)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
     @Test
@@ -212,13 +211,13 @@ class NimbusAccessCredentialVerifierTest {
         )
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             verifier.verify(serializedCredential)
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
 }

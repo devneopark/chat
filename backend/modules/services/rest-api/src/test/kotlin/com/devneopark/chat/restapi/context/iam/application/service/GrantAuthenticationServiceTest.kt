@@ -9,7 +9,8 @@ import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.UserNotFoundException
+import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswordException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -37,7 +38,6 @@ import kotlin.time.toKotlinInstant
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition as UserExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition as IamExceptionDefinition
 
 @ExtendWith(MockitoExtension::class)
 class GrantAuthenticationServiceTest {
@@ -216,7 +216,7 @@ class GrantAuthenticationServiceTest {
     }
 
     @Test
-    fun `사용자를 찾지 못하면 USER_NOT_FOUND 예외를 던지고 credential을 발급하지 않는다`() = runTest {
+    fun `사용자를 찾지 못하면 UserNotFoundException을 던지고 credential을 발급하지 않는다`() = runTest {
         // given
         val command = GrantAuthenticationUseCase.Command(
             "principal",
@@ -232,13 +232,13 @@ class GrantAuthenticationServiceTest {
             .willReturn(null)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<UserNotFoundException> {
             grantAuthenticationService.grant(command)
         }
 
         // then
-        assertEquals(IamExceptionDefinition.USER_NOT_FOUND.code, exception.code)
-        assertEquals(IamExceptionDefinition.USER_NOT_FOUND.message, exception.message)
+        assertEquals("2-001-002", exception.code)
+        assertEquals("User not found.", exception.message)
         verify(userRepositoryPort, only())
             .findByPrincipal(command.principal)
         verifyNoInteractions(
@@ -251,7 +251,7 @@ class GrantAuthenticationServiceTest {
     }
 
     @Test
-    fun `비밀번호가 일치하지 않으면 WRONG_PASSWORD 예외를 던지고 credential을 발급하지 않는다`() = runTest {
+    fun `비밀번호가 일치하지 않으면 WrongPasswordException을 던지고 credential을 발급하지 않는다`() = runTest {
         // given
         val command = GrantAuthenticationUseCase.Command(
             "principal",
@@ -274,13 +274,13 @@ class GrantAuthenticationServiceTest {
             .willReturn(false)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<WrongPasswordException> {
             grantAuthenticationService.grant(command)
         }
 
         // then
-        assertEquals(IamExceptionDefinition.WRONG_PASSWORD.code, exception.code)
-        assertEquals(IamExceptionDefinition.WRONG_PASSWORD.message, exception.message)
+        assertEquals("2-001-003", exception.code)
+        assertEquals("Wrong password.", exception.message)
         verify(passwordHasher, only())
             .matches(command.rawPassword, user.credential.passwordHash)
         verifyNoInteractions(

@@ -1,7 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidRenewalCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RefreshUserLoginController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RefreshUserLoginApi
@@ -99,10 +98,7 @@ class RefreshUserLoginControllerTest {
         val command = RenewalAuthenticationUseCase.Command(refreshToken)
         given(renewalAuthenticationUseCase.renewal(command))
             .willThrow(
-                IamContextException(
-                    ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code,
-                    ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message
-                )
+                InvalidRenewalCredentialException()
             )
 
         // when
@@ -120,8 +116,8 @@ class RefreshUserLoginControllerTest {
 
         // then
         Assertions.assertNotNull(responseBody)
-        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.code, responseBody.code)
-        Assertions.assertEquals(ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL.message, responseBody.message)
+        Assertions.assertEquals(InvalidRenewalCredentialException().code, responseBody.code)
+        Assertions.assertEquals(InvalidRenewalCredentialException().message, responseBody.message)
         verifyNoInteractions(clock)
     }
 

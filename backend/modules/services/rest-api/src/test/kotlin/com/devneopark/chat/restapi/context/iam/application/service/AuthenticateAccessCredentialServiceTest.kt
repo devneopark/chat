@@ -2,8 +2,7 @@ package com.devneopark.chat.restapi.context.iam.application.service
 
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.lib.domain.user.model.User
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidAccessCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.AuthenticateAccessCredentialUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AccessCredentialVerifier
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -76,15 +75,15 @@ class AuthenticateAccessCredentialServiceTest {
             .willReturn(null)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             authenticateAccessCredentialService.authenticate(
                 AuthenticateAccessCredentialUseCase.Command(serializedCredential)
             )
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
     @Test
@@ -105,15 +104,15 @@ class AuthenticateAccessCredentialServiceTest {
             .willReturn(false)
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             authenticateAccessCredentialService.authenticate(
                 AuthenticateAccessCredentialUseCase.Command(serializedCredential)
             )
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
     @Test
@@ -129,15 +128,15 @@ class AuthenticateAccessCredentialServiceTest {
             .willReturn(User.Id("user-from-grant"))
 
         // when
-        val exception = assertFailsWith<IamContextException> {
+        val exception = assertFailsWith<InvalidAccessCredentialException> {
             authenticateAccessCredentialService.authenticate(
                 AuthenticateAccessCredentialUseCase.Command(serializedCredential)
             )
         }
 
         // then
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.code, exception.code)
-        assertEquals(ExceptionDefinition.INVALID_ACCESS_CREDENTIAL.message, exception.message)
+        assertEquals("2-001-005", exception.code)
+        assertEquals("Invalid access credential.", exception.message)
     }
 
 }

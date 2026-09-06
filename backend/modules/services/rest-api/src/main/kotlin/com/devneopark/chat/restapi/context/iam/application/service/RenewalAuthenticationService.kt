@@ -2,8 +2,7 @@ package com.devneopark.chat.restapi.context.iam.application.service
 
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.ExceptionDefinition
-import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.iam.application.exception.InvalidRenewalCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
@@ -30,21 +29,13 @@ class RenewalAuthenticationService(
         val renewalCredentialId = command.renewalCredentialId
         val authenticationGrant = authenticationGrantRepositoryPort.findByRenewalCredentialId(renewalCredentialId)
             ?: run {
-                val exceptionDefinition = ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL
-                throw IamContextException(
-                    exceptionDefinition.code,
-                    exceptionDefinition.message
-                )
+                throw InvalidRenewalCredentialException()
             }
 
         val now = clock.instant().toKotlinInstant()
         val isUsableCredential = authenticationGrant.isRenewalCredentialUsable(now)
         if (!isUsableCredential) {
-            val exceptionDefinition = ExceptionDefinition.INVALID_RENEWAL_CREDENTIAL
-            throw IamContextException(
-                exceptionDefinition.code,
-                exceptionDefinition.message
-            )
+            throw InvalidRenewalCredentialException()
         }
 
         val userId = authenticationGrant.userId
