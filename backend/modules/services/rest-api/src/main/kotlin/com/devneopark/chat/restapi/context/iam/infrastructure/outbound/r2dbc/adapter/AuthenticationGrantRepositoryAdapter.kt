@@ -24,8 +24,8 @@ class AuthenticationGrantRepositoryAdapter(
             ?.toDomain()
     }
 
-    override suspend fun findByRenewalCredentialId(renewalCredentialId: String): AuthenticationGrant? {
-        return authenticationGrantEntityRepository.findByRcId(renewalCredentialId)
+    override suspend fun findByRenewalCredentialIdForUpdate(renewalCredentialId: String): AuthenticationGrant? {
+        return authenticationGrantEntityRepository.findByRcIdForUpdate(renewalCredentialId)
             ?.toDomain()
     }
 

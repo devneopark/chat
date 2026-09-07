@@ -87,7 +87,7 @@ class AuthenticationGrantRepositoryAdapterTest {
         val result = authenticationGrantRepositoryAdapter.insert(grant)
         val byJti = authenticationGrantRepositoryAdapter.findByJti("access-jti-001")
         val byRenewalCredentialId = authenticationGrantRepositoryAdapter
-            .findByRenewalCredentialId("renewal-id-001")
+            .findByRenewalCredentialIdForUpdate("renewal-id-001")
 
         // then
         assertSame(grant, result)
@@ -107,7 +107,7 @@ class AuthenticationGrantRepositoryAdapterTest {
 
         // then
         assertNull(authenticationGrantRepositoryAdapter.findByJti("seed-access-jti-001"))
-        assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialId("seed-renewal-id-001"))
+        assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialIdForUpdate("seed-renewal-id-001"))
     }
 
     @Test
@@ -135,7 +135,7 @@ class AuthenticationGrantRepositoryAdapterTest {
 
         // then
         assertNull(authenticationGrantRepositoryAdapter.findByJti("access-jti-002"))
-        assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialId("renewal-id-002"))
+        assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialIdForUpdate("renewal-id-002"))
     }
 
 }

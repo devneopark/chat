@@ -27,7 +27,7 @@ class RenewalAuthenticationService(
     @Transactional
     override suspend fun renewal(command: RenewalAuthenticationUseCase.Command): RenewalAuthenticationUseCase.Result {
         val renewalCredentialId = command.renewalCredentialId
-        val authenticationGrant = authenticationGrantRepositoryPort.findByRenewalCredentialId(renewalCredentialId)
+        val authenticationGrant = authenticationGrantRepositoryPort.findByRenewalCredentialIdForUpdate(renewalCredentialId)
             ?: run {
                 throw InvalidRenewalCredentialException()
             }

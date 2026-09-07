@@ -67,9 +67,10 @@ interface AuthenticationGrantEntityRepository : CoroutineCrudRepository<Authenti
             rc_will_expires_at
         from authentication_grant
         where rc_id = :rcId
+        for update
         """
     )
-    suspend fun findByRcId(rcId: String): AuthenticationGrantEntity?
+    suspend fun findByRcIdForUpdate(rcId: String): AuthenticationGrantEntity?
 
     @Modifying
     @Query(

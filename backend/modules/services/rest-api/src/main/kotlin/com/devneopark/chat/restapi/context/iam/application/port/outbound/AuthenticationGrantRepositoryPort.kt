@@ -10,7 +10,7 @@ interface AuthenticationGrantRepositoryPort {
     // Read
     suspend fun findByJti(jti: String): AuthenticationGrant?
 
-    suspend fun findByRenewalCredentialId(renewalCredentialId: String): AuthenticationGrant?
+    suspend fun findByRenewalCredentialIdForUpdate(renewalCredentialId: String): AuthenticationGrant?
 
     // Update
 

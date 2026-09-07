@@ -93,7 +93,7 @@ class RenewalAuthenticationServiceTest {
             accessExpiresAt,
             renewalExpiresAt
         )
-        given(authenticationGrantRepositoryPort.findByRenewalCredentialId(command.renewalCredentialId))
+        given(authenticationGrantRepositoryPort.findByRenewalCredentialIdForUpdate(command.renewalCredentialId))
             .willReturn(existingGrant)
         given(clock.instant())
             .willReturn(now.toJavaInstant())
@@ -129,7 +129,7 @@ class RenewalAuthenticationServiceTest {
     fun `존재하지 않는 renewal credential이면 InvalidRenewalCredentialException을 던진다`() = runTest {
         // given
         val command = RenewalAuthenticationUseCase.Command("missing-renewal-id")
-        given(authenticationGrantRepositoryPort.findByRenewalCredentialId(command.renewalCredentialId))
+        given(authenticationGrantRepositoryPort.findByRenewalCredentialIdForUpdate(command.renewalCredentialId))
             .willReturn(null)
 
         // when
@@ -141,7 +141,7 @@ class RenewalAuthenticationServiceTest {
         assertEquals("2-001-004", exception.code)
         assertEquals("Invalid renewal credential.", exception.message)
         verify(authenticationGrantRepositoryPort, only())
-            .findByRenewalCredentialId(command.renewalCredentialId)
+            .findByRenewalCredentialIdForUpdate(command.renewalCredentialId)
         verifyNoInteractions(clock, authenticationCredentialManager, idGenerator)
     }
 
@@ -166,7 +166,7 @@ class RenewalAuthenticationServiceTest {
             )
         )
         val command = RenewalAuthenticationUseCase.Command("renewal-id-001")
-        given(authenticationGrantRepositoryPort.findByRenewalCredentialId(command.renewalCredentialId))
+        given(authenticationGrantRepositoryPort.findByRenewalCredentialIdForUpdate(command.renewalCredentialId))
             .willReturn(authenticationGrant)
         given(clock.instant())
             .willReturn(renewalExpiresAt.toJavaInstant())
@@ -180,7 +180,7 @@ class RenewalAuthenticationServiceTest {
         assertEquals("2-001-004", exception.code)
         assertEquals("Invalid renewal credential.", exception.message)
         verify(authenticationGrantRepositoryPort, only())
-            .findByRenewalCredentialId(command.renewalCredentialId)
+            .findByRenewalCredentialIdForUpdate(command.renewalCredentialId)
         verify(clock, only())
             .instant()
         verifyNoInteractions(authenticationCredentialManager, idGenerator)
