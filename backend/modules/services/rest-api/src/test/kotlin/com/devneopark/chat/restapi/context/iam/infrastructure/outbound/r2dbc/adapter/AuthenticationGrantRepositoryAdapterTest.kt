@@ -4,17 +4,23 @@ import com.devneopark.chat.lib.domain.authentication_grant.model.AccessCredentia
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
 import com.devneopark.chat.lib.domain.authentication_grant.model.RenewalCredential
 import com.devneopark.chat.lib.domain.user.model.User
+import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.maintenance.AuthenticationGrantPartitionManager
 import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.repository.AuthenticationGrantEntityRepository
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import java.sql.DriverManager
+import java.time.Clock
+import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -32,6 +38,12 @@ class AuthenticationGrantRepositoryAdapterTest {
 
     @Autowired
     lateinit var authenticationGrantEntityRepository: AuthenticationGrantEntityRepository
+
+    @Autowired
+    lateinit var databaseClient: DatabaseClient
+
+    @Autowired
+    lateinit var transactionalOperator: TransactionalOperator
 
     companion object {
 
@@ -57,6 +69,9 @@ class AuthenticationGrantRepositoryAdapterTest {
             }
             registry.add("spring.r2dbc.username", db::getUsername)
             registry.add("spring.r2dbc.password", db::getPassword)
+            registry.add("spring.sql.init.schema-locations") {
+                "classpath:init/AuthenticationGrantRepositoryAdapterTest-schema.sql"
+            }
             registry.add("spring.sql.init.data-locations") {
                 "classpath:init/AuthenticationGrantRepositoryAdapterTest.sql"
             }
@@ -136,6 +151,39 @@ class AuthenticationGrantRepositoryAdapterTest {
         // then
         assertNull(authenticationGrantRepositoryAdapter.findByJti("access-jti-002"))
         assertNull(authenticationGrantRepositoryAdapter.findByRenewalCredentialIdForUpdate("renewal-id-002"))
+    }
+
+    @Test
+    fun `주간 파티션을 생성하고 지난주 파티션을 삭제한다`() = runTest {
+        // given
+        val manager = AuthenticationGrantPartitionManager(
+            databaseClient,
+            Clock.fixed(
+                java.time.Instant.parse("2026-09-09T00:00:00Z"),
+                ZoneOffset.UTC
+            ),
+            transactionalOperator,
+            20 * 24 * 60 * 60 * 1_000L
+        )
+
+        // when
+        manager.ensureUpcomingPartitions()
+        manager.dropPreviousWeekPartition()
+
+        // then
+        assertNull(partitionName("20260831"))
+        assertNotNull(partitionName("20260907"))
+        assertNotNull(partitionName("20260928"))
+    }
+
+    private suspend fun partitionName(partitionDate: String): String? {
+        return databaseClient.sql(
+            "select to_regclass('authentication_grant_$partitionDate') as partition_name"
+        )
+            .map { row -> row.get("partition_name", String::class.java) ?: "" }
+            .one()
+            .awaitSingle()
+            .ifBlank { null }
     }
 
 }
