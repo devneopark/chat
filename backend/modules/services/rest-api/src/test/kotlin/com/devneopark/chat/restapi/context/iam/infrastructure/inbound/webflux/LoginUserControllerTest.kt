@@ -1,10 +1,12 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
 import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswordException
+import com.devneopark.chat.restapi.context.iam.application.port.inbound.AuthenticateAccessCredentialUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.LoginUserController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.LoginUserApi
 import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
+import com.devneopark.chat.restapi.framework.config.WebFluxSecurityConfig
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
@@ -12,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito
+import org.mockito.Mockito.verifyNoInteractions
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.context.annotation.Import
@@ -29,7 +32,12 @@ import kotlin.test.assertTrue
 
 @ActiveProfiles("test")
 @WebFluxTest(controllers = [ LoginUserController::class ])
-@Import(TraceIdAssigningFilter::class, WebFluxGlobalExceptionAdvice::class, LoginUserController::class)
+@Import(
+    WebFluxSecurityConfig::class,
+    TraceIdAssigningFilter::class,
+    WebFluxGlobalExceptionAdvice::class,
+    LoginUserController::class
+)
 class LoginUserControllerTest {
 
     @Autowired
@@ -37,6 +45,9 @@ class LoginUserControllerTest {
 
     @MockitoBean
     lateinit var grantAuthenticationUseCase: GrantAuthenticationUseCase
+
+    @MockitoBean
+    lateinit var authenticateAccessCredentialUseCase: AuthenticateAccessCredentialUseCase
 
     @MockitoBean
     lateinit var clock: Clock
@@ -92,6 +103,32 @@ class LoginUserControllerTest {
         Assertions.assertEquals("0-000-000", responseBody.code)
         Assertions.assertEquals("access-token", responseBody.accessToken)
         Assertions.assertEquals(accessExpiresAt.toJavaInstant(), responseBody.expiresAt)
+    }
+
+    @Test
+    fun `인증된 사용자는 로그인할 수 없다`() = runTest {
+        // given
+        val serializedCredential = "access-token"
+        BDDMockito.given(
+            authenticateAccessCredentialUseCase.authenticate(
+                AuthenticateAccessCredentialUseCase.Command(serializedCredential)
+            )
+        ).willReturn(
+            AuthenticateAccessCredentialUseCase.Result("user-001", "access-jti-001")
+        )
+        val body = LoginUserApi.Request("principal", "RawP@ssword123")
+
+        // when
+        webTestClient.post()
+            .uri("/authentications")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $serializedCredential")
+            .bodyValue(body)
+            .exchange()
+            .expectStatus()
+            .isForbidden
+
+        // then
+        verifyNoInteractions(grantAuthenticationUseCase)
     }
 
     @Test

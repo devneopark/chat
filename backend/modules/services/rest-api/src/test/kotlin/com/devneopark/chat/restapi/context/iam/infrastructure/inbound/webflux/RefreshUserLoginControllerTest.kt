@@ -1,10 +1,12 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
 
+import com.devneopark.chat.restapi.context.iam.application.port.inbound.AuthenticateAccessCredentialUseCase
 import com.devneopark.chat.restapi.context.iam.application.exception.InvalidRenewalCredentialException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RenewalAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RefreshUserLoginController
 import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RefreshUserLoginApi
 import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
+import com.devneopark.chat.restapi.framework.config.WebFluxSecurityConfig
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.TraceIdAssigningFilter
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.WebFluxErrorResponses
@@ -28,7 +30,12 @@ import kotlin.time.toJavaInstant
 
 @ActiveProfiles("test")
 @WebFluxTest(controllers = [ RefreshUserLoginController::class ])
-@Import(TraceIdAssigningFilter::class, WebFluxGlobalExceptionAdvice::class, RefreshUserLoginController::class)
+@Import(
+    WebFluxSecurityConfig::class,
+    TraceIdAssigningFilter::class,
+    WebFluxGlobalExceptionAdvice::class,
+    RefreshUserLoginController::class
+)
 class RefreshUserLoginControllerTest {
 
     @Autowired
@@ -36,6 +43,9 @@ class RefreshUserLoginControllerTest {
 
     @MockitoBean
     lateinit var renewalAuthenticationUseCase: RenewalAuthenticationUseCase
+
+    @MockitoBean
+    lateinit var authenticateAccessCredentialUseCase: AuthenticateAccessCredentialUseCase
 
     @MockitoBean
     lateinit var clock: Clock
@@ -89,6 +99,44 @@ class RefreshUserLoginControllerTest {
         Assertions.assertEquals("0-000-000", responseBody.code)
         Assertions.assertEquals("access-token", responseBody.accessToken)
         Assertions.assertEquals(accessExpiresAt.toJavaInstant(), responseBody.expiresAt)
+    }
+
+    @Test
+    fun `인증된 사용자도 refresh token으로 access token을 재발급할 수 있다`() = runTest {
+        // given
+        val serializedCredential = "access-token"
+        val refreshToken = "renewal-token"
+        val command = RenewalAuthenticationUseCase.Command(refreshToken)
+        val now = Instant.parse("2026-08-11T00:00:00Z")
+        val accessExpiresAt = kotlin.time.Instant.parse("2026-08-11T00:15:00Z")
+        val renewalExpiresAt = accessExpiresAt + 7.minutes
+        given(authenticateAccessCredentialUseCase.authenticate(
+            AuthenticateAccessCredentialUseCase.Command(serializedCredential)
+        )).willReturn(
+            AuthenticateAccessCredentialUseCase.Result("user-001", "access-jti-001")
+        )
+        given(clock.instant())
+            .willReturn(now)
+        given(renewalAuthenticationUseCase.renewal(command))
+            .willReturn(
+                RenewalAuthenticationUseCase.Result(
+                    "user-001",
+                    RenewalAuthenticationUseCase.Credential("new-access-token", accessExpiresAt),
+                    RenewalAuthenticationUseCase.Credential("new-renewal-token", renewalExpiresAt)
+                )
+            )
+
+        // when
+        webTestClient.put()
+            .uri("/authentications")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $serializedCredential")
+            .cookie("SRTID", refreshToken)
+            .exchange()
+            .expectStatus()
+            .isOk
+
+        // then
+        org.mockito.Mockito.verify(renewalAuthenticationUseCase).renewal(command)
     }
 
     @Test
