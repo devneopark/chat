@@ -25,6 +25,5 @@ create table if not exists authentication_grant
     rc_will_expires_at timestamp with time zone not null
 );
 
-create unique index if not exists uk_authentication_grant_user_id on authentication_grant (user_id);
 create unique index if not exists uk_authentication_grant_ac_jti on authentication_grant (ac_jti);
 create unique index if not exists uk_authentication_grant_rc_id on authentication_grant (rc_id);
