@@ -24,4 +24,9 @@ class UserRepositoryAdapter(
         return userEntityRepository.existsByPrincipal(principal)
     }
 
+    override suspend fun findByPrincipal(principal: String): User? {
+        return userEntityRepository.findByPrincipal(principal)
+            ?.toDomain()
+    }
+
 }

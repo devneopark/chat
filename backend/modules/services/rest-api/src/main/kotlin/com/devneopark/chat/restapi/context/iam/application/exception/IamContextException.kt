@@ -2,7 +2,7 @@ package com.devneopark.chat.restapi.context.iam.application.exception
 
 import com.devneopark.chat.lib.shared.kernel.exception.ExceptionBase
 
-class IamContextException(
+abstract class IamContextException(
 
     code: String,
 
