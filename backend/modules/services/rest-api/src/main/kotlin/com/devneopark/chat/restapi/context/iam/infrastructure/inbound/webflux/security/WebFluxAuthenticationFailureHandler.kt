@@ -12,6 +12,11 @@ import org.springframework.transaction.TransactionException
 import reactor.core.publisher.Mono
 import tools.jackson.databind.json.JsonMapper
 
+/**
+ * 인증 필터에서 발생한 실패를 공통 HTTP 응답으로 변환한다.
+ *
+ * 잘못된 credential은 401로, 데이터베이스·트랜잭션 장애는 503으로, 그 외 예기치 않은 장애는 500으로 응답한다.
+ */
 class WebFluxAuthenticationFailureHandler(
 
     private val authenticationEntryPoint: WebFluxAuthenticationEntryPoint,

@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import java.util.Base64
 import javax.crypto.spec.SecretKeySpec
 
+/** 허용 알고리즘을 HS512로 고정한 Nimbus JWT encoder와 decoder를 조립한다. */
 @Configuration
 class NimbusConfig {
 

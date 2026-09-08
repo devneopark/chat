@@ -9,6 +9,7 @@ import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
 import tools.jackson.databind.json.JsonMapper
 
+/** 인증되지 않은 WebFlux 요청에 공통 401 오류 응답을 작성하는 진입점이다. */
 class WebFluxAuthenticationEntryPoint(
 
     private val jsonMapper: JsonMapper,

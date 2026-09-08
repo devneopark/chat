@@ -17,6 +17,12 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
 import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache
 import tools.jackson.databind.json.JsonMapper
 
+/**
+ * WebFlux Security 조립 설정이다.
+ *
+ * 교환 레벨은 허용하고 실제 인증·인가 정책은 API 인터페이스의 method security와
+ * 사용자 정의 access credential 필터가 담당한다.
+ */
 @Configuration
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity(proxyTargetClass = true)

@@ -12,6 +12,12 @@ import org.springframework.security.core.Authentication
 import org.springframework.security.core.AuthenticationException
 import reactor.core.publisher.Mono
 
+/**
+ * Spring Security의 인증 요청을 access credential 인증 유즈케이스로 연결한다.
+ *
+ * 인증 성공 시 principal에는 userId를, credentials에는 후속 폐기에 사용할 JTI를 저장한다.
+ * credential 오류는 401 흐름으로, 인증 인프라 장애는 5xx 흐름으로 변환한다.
+ */
 class WebFluxAccessCredentialAuthenticationManager(
 
     private val authenticateAccessCredentialUseCase: AuthenticateAccessCredentialUseCase,

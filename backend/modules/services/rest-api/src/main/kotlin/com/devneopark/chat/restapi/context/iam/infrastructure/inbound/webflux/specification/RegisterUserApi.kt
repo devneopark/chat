@@ -12,9 +12,11 @@ import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 
+/** 인증되지 않은 사용자가 새 계정을 생성하는 HTTP 계약이다. */
 @Tag(name = "User API")
 interface RegisterUserApi {
 
+    /** 인증된 사용자는 회원가입 API를 호출할 수 없다. */
     @PostMapping("/users")
     @Operation(summary = "회원가입 API")
     @PreAuthorize("isAnonymous()")

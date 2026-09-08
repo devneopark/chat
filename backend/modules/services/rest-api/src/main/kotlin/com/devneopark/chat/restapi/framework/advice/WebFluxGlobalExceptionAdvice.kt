@@ -24,6 +24,7 @@ import org.springframework.web.server.UnsupportedMediaTypeStatusException
 
 private val logger = LoggerFactory.getLogger(WebFluxGlobalExceptionAdvice::class.java)
 
+/** WebFlux 요청 처리 과정에서 발생한 예외를 일관된 HTTP 오류 응답으로 변환한다. */
 @RestControllerAdvice
 class WebFluxGlobalExceptionAdvice {
 

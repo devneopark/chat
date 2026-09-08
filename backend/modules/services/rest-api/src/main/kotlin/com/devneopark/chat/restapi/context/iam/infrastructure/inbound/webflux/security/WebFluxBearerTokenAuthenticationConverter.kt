@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono
 
 private const val BEARER_PREFIX = "Bearer "
 
+/** HTTP Authorization 헤더의 Bearer token을 Spring Security 인증 객체로 변환한다. */
 class WebFluxBearerTokenAuthenticationConverter : ServerAuthenticationConverter {
 
     override fun convert(exchange: ServerWebExchange): Mono<Authentication> {

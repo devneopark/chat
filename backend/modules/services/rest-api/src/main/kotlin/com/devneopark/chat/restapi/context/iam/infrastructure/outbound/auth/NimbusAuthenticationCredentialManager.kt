@@ -17,6 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
 
+/** access JWT와 원문 renewal credential을 발급하는 Nimbus 기반 credential 관리자다. */
 @Component
 class NimbusAuthenticationCredentialManager(
 

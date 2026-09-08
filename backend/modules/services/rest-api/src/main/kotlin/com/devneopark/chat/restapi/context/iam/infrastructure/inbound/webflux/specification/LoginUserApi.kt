@@ -12,9 +12,14 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import java.time.Instant
 
+/**
+ * 익명 사용자가 access token 발급을 요청하는 HTTP 계약이다.
+ * renewal credential은 응답 쿠키로 전달되고 access token만 응답 본문에 포함된다.
+ */
 @Tag(name = "User API")
 interface LoginUserApi {
 
+    /** 인증되지 않은 사용자만 로그인할 수 있다. */
     @PostMapping("/authentications")
     @Operation(summary = "로그인 토큰 발급 API")
     @PreAuthorize("isAnonymous()")
