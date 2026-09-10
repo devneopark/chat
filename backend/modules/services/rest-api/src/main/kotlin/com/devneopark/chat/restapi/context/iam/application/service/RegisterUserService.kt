@@ -9,14 +9,14 @@ import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.iam.application.exception.DuplicatedPrincipalException
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class RegisterUserService(
 
-    private val userRepositoryPort: UserRepositoryPort,
+    private val iamUserRepositoryPort: IamUserRepositoryPort,
 
     private val idGenerator: IdGenerator,
 
@@ -34,7 +34,7 @@ class RegisterUserService(
         userCredentialValidator.validatePassword(command.rawPassword)
         userProfileValidator.validateDisplayName(command.displayName)
 
-        val isPrincipalDuplicated = userRepositoryPort.existsByPrincipal(command.principal)
+        val isPrincipalDuplicated = iamUserRepositoryPort.existsByPrincipal(command.principal)
         if (isPrincipalDuplicated) {
             throw DuplicatedPrincipalException()
         }
@@ -46,7 +46,7 @@ class RegisterUserService(
             Credential(command.principal, passwordHash),
             Profile(command.displayName)
         )
-        userRepositoryPort.insert(user)
+        iamUserRepositoryPort.insert(user)
 
         return RegisterUserUseCase.Result(idValue)
     }

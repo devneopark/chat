@@ -4,7 +4,7 @@ import com.devneopark.chat.lib.domain.user.model.Credential
 import com.devneopark.chat.lib.domain.user.model.Profile
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.model.UserEntity
-import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.repository.UserEntityRepository
+import com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.repository.IamUserEntityRepository
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -25,14 +25,14 @@ import kotlin.test.assertTrue
 
 @DataR2dbcTest
 @ActiveProfiles("test")
-@Import(UserRepositoryAdapter::class)
+@Import(IamUserRepositoryAdapter::class)
 class UserRepositoryAdapterTest {
 
     @Autowired
-    lateinit var userRepositoryAdapter: UserRepositoryAdapter
+    lateinit var userRepositoryAdapter: IamUserRepositoryAdapter
 
     @Autowired
-    lateinit var userEntityRepository: UserEntityRepository
+    lateinit var iamUserEntityRepository: IamUserEntityRepository
 
     companion object {
 
@@ -144,7 +144,7 @@ class UserRepositoryAdapterTest {
         }
 
         val exception = assertFailsWith<DataAccessException> {
-            userEntityRepository.insert(entity)
+            iamUserEntityRepository.insert(entity)
         }
 
         assertTrue(
@@ -163,7 +163,7 @@ class UserRepositoryAdapterTest {
         }
 
         val exception = assertFailsWith<DataAccessException> {
-            userEntityRepository.insert(entity)
+            iamUserEntityRepository.insert(entity)
         }
 
         assertTrue(

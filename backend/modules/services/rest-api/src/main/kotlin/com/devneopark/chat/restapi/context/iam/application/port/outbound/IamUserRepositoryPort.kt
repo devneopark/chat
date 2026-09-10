@@ -3,7 +3,7 @@ package com.devneopark.chat.restapi.context.iam.application.port.outbound
 import com.devneopark.chat.lib.domain.user.model.User
 
 /** 사용자 aggregate의 영속화와 principal 조회를 담당하는 계약이다. */
-interface UserRepositoryPort {
+interface IamUserRepositoryPort {
 
     // Create
     /** 사용자를 저장한다. */
