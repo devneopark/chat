@@ -3,29 +3,39 @@ package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.r2dbc.ma
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.BDDMockito.given
 import org.mockito.Mock
 import org.mockito.Mockito.inOrder
 import org.mockito.junit.jupiter.MockitoExtension
+import java.time.Clock
+import java.time.Instant
 
 @ExtendWith(MockitoExtension::class)
-class AuthenticationGrantPartitionSchedulerTest {
+class AuthenticationGrantPartitionInitializerTest {
 
     @Mock
     lateinit var authenticationGrantPartitionManager: AuthenticationGrantPartitionManager
 
+    @Mock
+    lateinit var clock: Clock
+
     @Test
-    fun `수요일 유지보수 시 미래 파티션을 보장한 뒤 지난주 파티션을 삭제하고 2주 전 파티션 삭제를 재시도한다`() = runTest {
+    fun `singleton 초기화가 끝나면 현재 주간 파티션을 보장한다`() = runTest {
         // given
-        val scheduler = AuthenticationGrantPartitionScheduler(authenticationGrantPartitionManager)
+        val now = Instant.parse("2026-09-09T00:00:00Z")
+        given(clock.instant()).willReturn(now)
+        val initializer = AuthenticationGrantPartitionInitializer(
+            authenticationGrantPartitionManager,
+            clock
+        )
 
         // when
-        scheduler.maintainPartitions()
+        initializer.afterSingletonsInstantiated()
 
         // then
         val inOrder = inOrder(authenticationGrantPartitionManager)
+        inOrder.verify(authenticationGrantPartitionManager).ensurePartition(now)
         inOrder.verify(authenticationGrantPartitionManager).ensureUpcomingPartitions()
-        inOrder.verify(authenticationGrantPartitionManager).dropPartitionFromTwoWeeksAgo()
-        inOrder.verify(authenticationGrantPartitionManager).dropPreviousWeekPartition()
     }
 
 }

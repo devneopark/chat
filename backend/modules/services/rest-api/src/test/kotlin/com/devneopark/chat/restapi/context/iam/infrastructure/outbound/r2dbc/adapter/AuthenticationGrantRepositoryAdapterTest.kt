@@ -154,7 +154,27 @@ class AuthenticationGrantRepositoryAdapterTest {
     }
 
     @Test
-    fun `주간 파티션을 생성하고 지난주 파티션을 삭제한다`() = runTest {
+    fun `주어진 시각이 속한 주간 파티션을 생성한다`() = runTest {
+        // given
+        val manager = AuthenticationGrantPartitionManager(
+            databaseClient,
+            Clock.fixed(
+                java.time.Instant.parse("2026-09-09T00:00:00Z"),
+                ZoneOffset.UTC
+            ),
+            transactionalOperator,
+            20 * 24 * 60 * 60 * 1_000L
+        )
+
+        // when
+        manager.ensurePartition(java.time.Instant.parse("2026-10-12T00:00:00Z"))
+
+        // then
+        assertNotNull(partitionName("20261012"))
+    }
+
+    @Test
+    fun `주간 파티션을 생성하고 지난주 파티션을 삭제하며 2주 전 파티션 삭제를 재시도한다`() = runTest {
         // given
         val manager = AuthenticationGrantPartitionManager(
             databaseClient,
@@ -168,12 +188,16 @@ class AuthenticationGrantRepositoryAdapterTest {
 
         // when
         manager.ensureUpcomingPartitions()
+        manager.dropPartitionFromTwoWeeksAgo()
         manager.dropPreviousWeekPartition()
 
         // then
+        assertNull(partitionName("20260824"))
         assertNull(partitionName("20260831"))
         assertNotNull(partitionName("20260907"))
+        assertNotNull(partitionName("20260914"))
         assertNotNull(partitionName("20260928"))
+        assertNotNull(partitionName("20261005"))
     }
 
     private suspend fun partitionName(partitionDate: String): String? {
