@@ -78,6 +78,7 @@ class WebFluxGlobalExceptionAdvice {
         return ResponseEntity.status(httpStatus).body(response)
     }
 
+    /** User 컨텍스트 예외를 공통 400 오류 응답으로 변환한다. */
     @ExceptionHandler(UserContextException::class)
     suspend fun on(cause: UserContextException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST

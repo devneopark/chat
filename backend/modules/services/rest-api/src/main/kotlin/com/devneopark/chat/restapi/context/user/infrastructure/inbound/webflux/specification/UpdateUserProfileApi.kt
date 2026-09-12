@@ -26,9 +26,11 @@ interface UpdateUserProfileApi {
         authentication: Authentication
     ): ResponseEntity<Response>
 
+    /** 프로필 수정 요청에서 전달하는 사용자 표시 이름이다. */
     @Schema(name = "Update user profile api request body", description = "수정할 회원 프로필 정보")
     data class Request(
 
+        /** 비어 있지 않고 허용된 길이 범위에 있는 표시 이름이다. */
         @NotBlank
         @Size(min = 1, max = 20)
         @Schema(description = "회원 프로필 닉네임")
@@ -36,6 +38,7 @@ interface UpdateUserProfileApi {
 
     )
 
+    /** 프로필 수정 성공 결과를 담는 응답이다. */
     @Schema(name = "Update user profile api response body", description = "회원 프로필 수정 결과")
     class Response : ApiResponseBase()
 
