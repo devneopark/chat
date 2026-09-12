@@ -10,6 +10,8 @@ spring:
 chat:
   infrastructure:
     auth:
+      partition:
+        initialize-on-startup: true
       cookie:
         name: SRTID
         httpOnly: true

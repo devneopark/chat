@@ -12,9 +12,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest
 import org.springframework.context.annotation.Import
+import org.springframework.context.ApplicationContext
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.security.core.userdetails.ReactiveUserDetailsService
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.web.bind.annotation.GetMapping
@@ -34,8 +36,17 @@ class WebFluxSecurityConfigTest {
     @Autowired
     lateinit var webTestClient: WebTestClient
 
+    @Autowired
+    lateinit var applicationContext: ApplicationContext
+
     @MockitoBean
     lateinit var authenticateAccessCredentialUseCase: AuthenticateAccessCredentialUseCase
+
+    @Test
+    fun `기본 reactive user details service 자동 구성을 사용하지 않는다`() {
+        // then
+        assertEquals(0, applicationContext.getBeansOfType(ReactiveUserDetailsService::class.java).size)
+    }
 
     @Test
     fun `인증되지 않은 PreAuthorize 보호 자원 요청은 403을 반환한다`() {

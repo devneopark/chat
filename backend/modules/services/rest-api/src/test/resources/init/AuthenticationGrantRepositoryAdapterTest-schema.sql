@@ -17,10 +17,20 @@ create table if not exists authentication_grant_20260817
     for values from ('2026-08-17 00:00:00+00')
                  to ('2026-08-24 00:00:00+00');
 
+create table if not exists authentication_grant_20260824
+    partition of authentication_grant
+    for values from ('2026-08-24 00:00:00+00')
+                 to ('2026-08-31 00:00:00+00');
+
 create table if not exists authentication_grant_20260831
     partition of authentication_grant
     for values from ('2026-08-31 00:00:00+00')
                  to ('2026-09-07 00:00:00+00');
+
+create table if not exists authentication_grant_20260907
+    partition of authentication_grant
+    for values from ('2026-09-07 00:00:00+00')
+                 to ('2026-09-14 00:00:00+00');
 
 create unique index if not exists uk_authentication_grant_ac_jti
     on authentication_grant (ac_jti, rc_will_expires_at);
