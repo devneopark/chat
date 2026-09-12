@@ -5,7 +5,7 @@ import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
-interface UserEntityRepository : CoroutineCrudRepository<UserEntity, String> {
+interface IamUserEntityRepository : CoroutineCrudRepository<UserEntity, String> {
 
     @Modifying
     @Query(

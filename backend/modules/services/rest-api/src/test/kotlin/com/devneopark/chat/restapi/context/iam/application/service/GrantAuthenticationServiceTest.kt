@@ -15,7 +15,7 @@ import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAut
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -46,7 +46,7 @@ class GrantAuthenticationServiceTest {
     lateinit var userCredentialValidator: UserCredentialValidator
 
     @Mock
-    lateinit var userRepositoryPort: UserRepositoryPort
+    lateinit var iamUserRepositoryPort: IamUserRepositoryPort
 
     @Mock
     lateinit var passwordHasher: PasswordHasher
@@ -111,7 +111,7 @@ class GrantAuthenticationServiceTest {
         willDoNothing()
             .given(userCredentialValidator)
             .validatePassword(command.rawPassword)
-        given(userRepositoryPort.findByPrincipal(command.principal))
+        given(iamUserRepositoryPort.findByPrincipal(command.principal))
             .willReturn(user)
         given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
             .willReturn(true)
@@ -168,7 +168,7 @@ class GrantAuthenticationServiceTest {
         verify(userCredentialValidator, only())
             .validatePrincipal(command.principal)
         verifyNoInteractions(
-            userRepositoryPort,
+            iamUserRepositoryPort,
             passwordHasher,
             clock,
             authenticationCredentialManager,
@@ -206,7 +206,7 @@ class GrantAuthenticationServiceTest {
         verify(userCredentialValidator)
             .validatePassword(command.rawPassword)
         verifyNoInteractions(
-            userRepositoryPort,
+            iamUserRepositoryPort,
             passwordHasher,
             clock,
             authenticationCredentialManager,
@@ -228,7 +228,7 @@ class GrantAuthenticationServiceTest {
         willDoNothing()
             .given(userCredentialValidator)
             .validatePassword(command.rawPassword)
-        given(userRepositoryPort.findByPrincipal(command.principal))
+        given(iamUserRepositoryPort.findByPrincipal(command.principal))
             .willReturn(null)
 
         // when
@@ -239,7 +239,7 @@ class GrantAuthenticationServiceTest {
         // then
         assertEquals("2-001-002", exception.code)
         assertEquals("User not found.", exception.message)
-        verify(userRepositoryPort, only())
+        verify(iamUserRepositoryPort, only())
             .findByPrincipal(command.principal)
         verifyNoInteractions(
             passwordHasher,
@@ -268,7 +268,7 @@ class GrantAuthenticationServiceTest {
         willDoNothing()
             .given(userCredentialValidator)
             .validatePassword(command.rawPassword)
-        given(userRepositoryPort.findByPrincipal(command.principal))
+        given(iamUserRepositoryPort.findByPrincipal(command.principal))
             .willReturn(user)
         given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
             .willReturn(false)

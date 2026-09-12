@@ -9,7 +9,7 @@ import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAut
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.UserRepositoryPort
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -20,7 +20,7 @@ class GrantAuthenticationService(
 
     private val userCredentialValidator: UserCredentialValidator,
 
-    private val userRepositoryPort: UserRepositoryPort,
+    private val iamUserRepositoryPort: IamUserRepositoryPort,
 
     private val passwordHasher: PasswordHasher,
 
@@ -39,7 +39,7 @@ class GrantAuthenticationService(
         userCredentialValidator.validatePrincipal(command.principal)
         userCredentialValidator.validatePassword(command.rawPassword)
 
-        val user = userRepositoryPort.findByPrincipal(command.principal)
+        val user = iamUserRepositoryPort.findByPrincipal(command.principal)
             ?: run {
                 throw UserNotFoundException()
             }
