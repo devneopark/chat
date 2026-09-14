@@ -14,7 +14,19 @@ spring:
         - classpath:init/data.sql
 
 chat:
+  application:
+    room:
+      policy:
+        validation:
+          capacity: 20
   domain:
+    room:
+      service:
+        validation:
+          info:
+            pattern:
+              title: ^.{1,50}$
+              password: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[a-zA-Z0-9-=₩`~!@#$%^&*()_+\[\]\\{}|;':\",./<>?]{8,32}$
     user:
       service:
         validation:
