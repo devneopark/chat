@@ -1,14 +1,13 @@
 package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.crypto
 
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
 @Component
-class BcryptUserPasswordHasher(
+class BCryptUserPasswordHasher(
 
-    private val passwordEncoder: PasswordEncoder = BCryptPasswordEncoder()
+    private val passwordEncoder: PasswordEncoder
 
 ) : PasswordHasher {
 
