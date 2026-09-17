@@ -1,6 +1,8 @@
 package com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.adapter
 
 import com.devneopark.chat.lib.domain.participant.model.Participant
+import com.devneopark.chat.lib.domain.room.reference.RoomId
+import com.devneopark.chat.lib.domain.user.reference.UserId
 import com.devneopark.chat.restapi.context.room.application.port.outbound.ParticipantRepositoryPort
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.model.ParticipantEntity
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.repository.ParticipantEntityRepository
@@ -16,6 +18,13 @@ class ParticipantRepositoryAdapter(
     override suspend fun insert(participant: Participant): Participant {
         participantEntityRepository.insert(ParticipantEntity.from(participant))
         return participant
+    }
+
+    override suspend fun existsActiveHostForRead(
+        roomId: RoomId,
+        userId: UserId
+    ): Boolean {
+        TODO("Not yet implemented")
     }
 
 }
