@@ -26,7 +26,7 @@ chat:
           info:
             pattern:
               title: ^.{1,50}$
-              password: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[a-zA-Z0-9-=₩`~!@#$%^&*()_+\[\]\\{}|;':\",./<>?]{8,32}$
+              password: ^[0-9a-zA-Z]{1,32}$
     user:
       service:
         validation:
