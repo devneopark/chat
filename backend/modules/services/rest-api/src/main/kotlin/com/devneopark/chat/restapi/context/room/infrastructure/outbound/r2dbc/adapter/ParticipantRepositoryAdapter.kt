@@ -20,11 +20,9 @@ class ParticipantRepositoryAdapter(
         return participant
     }
 
-    override suspend fun existsActiveHostForRead(
-        roomId: RoomId,
-        userId: UserId
-    ): Boolean {
-        TODO("Not yet implemented")
+    override suspend fun existsActiveHostForRead(roomId: RoomId, userId: UserId): Boolean {
+        val activeHost = participantEntityRepository.findActiveHostForRead(roomId.value, userId.value)
+        return activeHost != null
     }
 
 }

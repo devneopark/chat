@@ -27,4 +27,22 @@ interface ParticipantEntityRepository : CoroutineCrudRepository<ParticipantEntit
     )
     suspend fun insert(entity: ParticipantEntity)
 
+    @Query(
+        """
+        select
+            id,
+            room_id,
+            user_id,
+            participant_role,
+            joined_at
+        from participant
+        where room_id = :roomId
+            and user_id = :userId
+            and participant_role = 'HOST'
+            and exited_at is null
+        for share
+        """
+    )
+    suspend fun findActiveHostForRead(roomId: String, userId: String): ParticipantEntity?
+
 }

@@ -24,18 +24,17 @@ class RoomRepositoryAdapter(
     }
 
     override suspend fun findActiveByIdForUpdate(id: RoomId): Room? {
-        TODO("Not yet implemented")
+        return roomEntityRepository.findActiveByIdForUpdate(id.value)
+            ?.toDomain()
     }
 
-    override suspend fun existsByTitleExceptRoomId(
-        title: String,
-        roomId: RoomId
-    ): Boolean {
-        TODO("Not yet implemented")
+    override suspend fun existsByTitleExceptRoomId(title: String, roomId: RoomId): Boolean {
+        return roomEntityRepository.existsByTitleExceptRoomId(title, roomId.value)
     }
 
     override suspend fun update(room: Room): Room {
-        TODO("Not yet implemented")
+        roomEntityRepository.updateRoom(RoomEntity.from(room))
+        return room
     }
 
 }

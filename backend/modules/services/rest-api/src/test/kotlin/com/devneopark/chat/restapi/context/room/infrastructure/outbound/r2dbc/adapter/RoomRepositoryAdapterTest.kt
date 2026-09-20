@@ -126,6 +126,87 @@ class RoomRepositoryAdapterTest {
     }
 
     @Test
+    fun `활성 채팅방을 비관적 쓰기 잠금으로 조회하면 방을 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.findActiveByIdForUpdate(Room.Id("room-seed-001"))
+
+        // then
+        assertEquals("room-seed-001", result?.id?.value)
+        assertEquals("Seed Room", result?.title)
+        assertEquals("seed-hashed-password", result?.passwordHash)
+    }
+
+    @Test
+    fun `닫힌 채팅방을 비관적 쓰기 잠금으로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.findActiveByIdForUpdate(Room.Id("room-closed-001"))
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `자기 자신을 제외한 제목 중복 여부를 조회하면 중복되지 않은 것으로 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.existsByTitleExceptRoomId(
+            "Seed Room",
+            Room.Id("room-seed-001")
+        )
+
+        // then
+        assertFalse(result)
+    }
+
+    @Test
+    fun `다른 활성 채팅방과 제목이 중복되면 true를 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.existsByTitleExceptRoomId(
+            "Seed Room",
+            Room.Id("room-other-001")
+        )
+
+        // then
+        assertTrue(result)
+    }
+
+    @Test
+    fun `채팅방을 수정하면 제목과 비밀번호를 변경한다`() = runTest {
+        // given
+        val room = Room(
+            Room.Id("room-update-001"),
+            "Updated Room",
+            "updated-hashed-password"
+        )
+
+        // when
+        val result = roomRepositoryAdapter.update(room)
+
+        // then
+        assertSame(room, result)
+        val entity = roomEntityRepository.findById(room.id.value)
+        assertEquals("Updated Room", entity?.title)
+        assertEquals("updated-hashed-password", entity?.passwordHash)
+    }
+
+    @Test
+    fun `채팅방을 수정하면서 비밀번호가 null이면 기존 비밀번호를 제거한다`() = runTest {
+        // given
+        val room = Room(
+            Room.Id("room-update-001"),
+            "Updated Room Without Password",
+            null
+        )
+
+        // when
+        roomRepositoryAdapter.update(room)
+
+        // then
+        val entity = roomEntityRepository.findById(room.id.value)
+        assertEquals("Updated Room Without Password", entity?.title)
+        assertEquals(null, entity?.passwordHash)
+    }
+
+    @Test
     fun `활성 채팅방의 제목은 중복 저장할 수 없다`() = runTest {
         // given
         val room = Room(

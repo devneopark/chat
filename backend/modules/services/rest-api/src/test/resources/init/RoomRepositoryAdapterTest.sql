@@ -11,6 +11,16 @@ insert into room(
 insert into room(
     id,
     title,
+    password_hash
+) values (
+    'room-update-001',
+    'Room To Update',
+    'update-seed-password'
+);
+
+insert into room(
+    id,
+    title,
     closed_at
 ) values (
     'room-closed-001',

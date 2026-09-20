@@ -19,7 +19,9 @@ import java.sql.DriverManager
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 @DataR2dbcTest
@@ -126,6 +128,54 @@ class ParticipantRepositoryAdapterTest {
         assertEquals("participant-room-001", entity?.roomId)
         assertEquals("participant-user-003", entity?.userId)
         assertEquals("GUEST", entity?.role)
+    }
+
+    @Test
+    fun `활성 호스트를 조회하면 true를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.existsActiveHostForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-001")
+        )
+
+        // then
+        assertTrue(result)
+    }
+
+    @Test
+    fun `활성 게스트를 호스트로 조회하면 false를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.existsActiveHostForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-004")
+        )
+
+        // then
+        assertFalse(result)
+    }
+
+    @Test
+    fun `탈퇴한 호스트를 조회하면 false를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.existsActiveHostForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-005")
+        )
+
+        // then
+        assertFalse(result)
+    }
+
+    @Test
+    fun `존재하지 않는 호스트를 조회하면 false를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.existsActiveHostForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-missing-001")
+        )
+
+        // then
+        assertFalse(result)
     }
 
     @Test

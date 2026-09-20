@@ -35,4 +35,43 @@ interface RoomEntityRepository : CoroutineCrudRepository<RoomEntity, String> {
     )
     suspend fun existsByTitle(title: String): Boolean
 
+    @Query(
+        """
+        select
+            id,
+            title,
+            password_hash
+        from room
+        where id = :id
+            and closed_at is null
+        for update
+        """
+    )
+    suspend fun findActiveByIdForUpdate(id: String): RoomEntity?
+
+    @Query(
+        """
+        select exists(
+            select 1
+            from room
+            where title = :title
+                and id <> :roomId
+                and closed_at is null
+        )
+        """
+    )
+    suspend fun existsByTitleExceptRoomId(title: String, roomId: String): Boolean
+
+    @Modifying
+    @Query(
+        """
+        update room
+        set title = :#{#entity.title},
+            password_hash = :#{#entity.passwordHash}
+        where id = :#{#entity.id}
+            and closed_at is null
+        """
+    )
+    suspend fun updateRoom(entity: RoomEntity)
+
 }

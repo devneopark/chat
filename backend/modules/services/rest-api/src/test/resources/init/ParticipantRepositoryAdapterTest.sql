@@ -42,6 +42,30 @@ insert into users(
     'Participant Third User'
 );
 
+insert into users(
+    id,
+    principal,
+    password_hash,
+    display_name
+) values (
+    'participant-user-004',
+    'participant.fourth.principal',
+    'seed-hashed-password',
+    'Participant Fourth User'
+);
+
+insert into users(
+    id,
+    principal,
+    password_hash,
+    display_name
+) values (
+    'participant-user-005',
+    'participant.fifth.principal',
+    'seed-hashed-password',
+    'Participant Fifth User'
+);
+
 insert into participant(
     id,
     room_id,
@@ -54,6 +78,20 @@ insert into participant(
     'participant-user-001',
     'HOST',
     '2026-09-14T00:00:00Z'
+);
+
+insert into participant(
+    id,
+    room_id,
+    user_id,
+    participant_role,
+    joined_at
+) values (
+    'participant-active-guest-001',
+    'participant-room-001',
+    'participant-user-004',
+    'GUEST',
+    '2026-09-14T01:00:00Z'
 );
 
 insert into participant(
@@ -85,5 +123,21 @@ insert into participant(
     'participant-user-001',
     'GUEST',
     '2026-09-14T01:00:00Z',
+    '2026-09-15T00:00:00Z'
+);
+
+insert into participant(
+    id,
+    room_id,
+    user_id,
+    participant_role,
+    joined_at,
+    exited_at
+) values (
+    'participant-exited-host-001',
+    'participant-room-001',
+    'participant-user-005',
+    'HOST',
+    '2026-09-14T03:00:00Z',
     '2026-09-15T00:00:00Z'
 );
