@@ -1,5 +1,6 @@
 package com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.adapter
 
+import com.devneopark.chat.lib.domain.admission_slot.model.AdmissionSlot
 import com.devneopark.chat.lib.domain.participant.model.Participant
 import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
@@ -92,6 +93,100 @@ class AdmissionSlotRepositoryAdapterTest {
         assertEquals(1 to "slot-participant-001", slots[0])
         assertEquals(2 to null, slots[1])
         assertEquals(3 to null, slots[2])
+    }
+
+    @Test
+    fun `현재 방의 슬롯 수를 반환한다`() = runTest {
+        // when
+        val result = admissionSlotRepositoryAdapter.countByRoomId(Room.Id("slot-count-001"))
+
+        // then
+        assertEquals(2, result)
+    }
+
+    @Test
+    fun `현재 방의 가장 큰 슬롯 번호를 반환한다`() = runTest {
+        // when
+        val result = admissionSlotRepositoryAdapter.findMaxSlotNumberByRoomId(
+            Room.Id("slot-additional-001")
+        )
+
+        // then
+        assertEquals(3, result)
+    }
+
+    @Test
+    fun `추가 슬롯을 증설하면 현재 최대 번호 다음부터 빈 슬롯을 저장한다`() = runTest {
+        // given
+        val roomId = Room.Id("slot-additional-001")
+
+        // when
+        admissionSlotRepositoryAdapter.provisionAdditionalSlots(roomId, 3, 2)
+
+        // then
+        val slotNumbers = databaseClient.sql(
+            """
+            select slot_number
+            from admission_slot
+            where room_id = :roomId
+            order by slot_number
+            """.trimIndent()
+        )
+            .bind("roomId", roomId.value)
+            .map { row -> row.get("slot_number", Int::class.javaObjectType)!! }
+            .all()
+            .collectList()
+            .awaitSingle()
+
+        assertEquals(listOf(1, 3, 4, 5), slotNumbers)
+    }
+
+    @Test
+    fun `빈 슬롯을 잠금 조회하면 번호가 큰 순서로 제한된 수만 반환한다`() = runTest {
+        // when
+        val result = admissionSlotRepositoryAdapter.findEmptyByRoomIdForUpdateSkipLocked(
+            Room.Id("slot-empty-001"),
+            2
+        )
+
+        // then
+        assertEquals(
+            listOf(
+                "slot-empty-001" to 3,
+                "slot-empty-001" to 2
+            ),
+            result.map { it.roomId to it.number }
+        )
+    }
+
+    @Test
+    fun `슬롯 식별자 목록으로 슬롯을 일괄 삭제한다`() = runTest {
+        // given
+        val roomId = Room.Id("slot-delete-001")
+        val slots = listOf(
+            AdmissionSlot.Id(roomId.value, 1),
+            AdmissionSlot.Id(roomId.value, 3)
+        )
+
+        // when
+        admissionSlotRepositoryAdapter.deleteAllByIds(slots)
+
+        // then
+        val remainingSlotNumbers = databaseClient.sql(
+            """
+            select slot_number
+            from admission_slot
+            where room_id = :roomId
+            order by slot_number
+            """.trimIndent()
+        )
+            .bind("roomId", roomId.value)
+            .map { row -> row.get("slot_number", Int::class.javaObjectType)!! }
+            .all()
+            .collectList()
+            .awaitSingle()
+
+        assertEquals(listOf(2), remainingSlotNumbers)
     }
 
 }

@@ -23,6 +23,11 @@ class RoomRepositoryAdapter(
         return roomEntityRepository.existsByTitle(title)
     }
 
+    override suspend fun findActiveByIdForRead(id: RoomId): Room? {
+        return roomEntityRepository.findActiveByIdForRead(id.value)
+            ?.toDomain()
+    }
+
     override suspend fun findActiveByIdForUpdate(id: RoomId): Room? {
         return roomEntityRepository.findActiveByIdForUpdate(id.value)
             ?.toDomain()

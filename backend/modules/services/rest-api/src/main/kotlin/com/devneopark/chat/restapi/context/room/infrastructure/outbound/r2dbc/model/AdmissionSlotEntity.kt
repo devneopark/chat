@@ -2,6 +2,7 @@ package com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.m
 
 import com.devneopark.chat.lib.domain.admission_slot.model.AdmissionSlot
 import com.devneopark.chat.lib.domain.participant.model.Participant
+import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
 
 @Table("admission_slot")
@@ -9,6 +10,7 @@ class AdmissionSlotEntity {
 
     lateinit var roomId: String
 
+    @Column("slot_number")
     var number: Int = 0
 
     var occupantParticipantId: String? = null

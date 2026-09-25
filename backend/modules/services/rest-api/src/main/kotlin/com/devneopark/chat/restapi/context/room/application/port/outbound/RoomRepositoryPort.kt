@@ -11,6 +11,8 @@ interface RoomRepositoryPort {
     // Read
     suspend fun existsByTitle(title: String): Boolean
 
+    suspend fun findActiveByIdForRead(id: RoomId): Room?
+
     suspend fun findActiveByIdForUpdate(id: RoomId): Room?
 
     suspend fun existsByTitleExceptRoomId(title: String, roomId: RoomId): Boolean

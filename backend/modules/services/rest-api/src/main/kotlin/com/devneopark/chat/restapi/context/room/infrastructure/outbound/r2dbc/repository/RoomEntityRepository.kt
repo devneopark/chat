@@ -44,6 +44,20 @@ interface RoomEntityRepository : CoroutineCrudRepository<RoomEntity, String> {
         from room
         where id = :id
             and closed_at is null
+        for share
+        """
+    )
+    suspend fun findActiveByIdForRead(id: String): RoomEntity?
+
+    @Query(
+        """
+        select
+            id,
+            title,
+            password_hash
+        from room
+        where id = :id
+            and closed_at is null
         for update
         """
     )

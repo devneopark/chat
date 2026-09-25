@@ -146,6 +146,26 @@ class RoomRepositoryAdapterTest {
     }
 
     @Test
+    fun `활성 채팅방을 공유 읽기 잠금으로 조회하면 방을 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.findActiveByIdForRead(Room.Id("room-seed-001"))
+
+        // then
+        assertEquals("room-seed-001", result?.id?.value)
+        assertEquals("Seed Room", result?.title)
+        assertEquals("seed-hashed-password", result?.passwordHash)
+    }
+
+    @Test
+    fun `닫힌 채팅방을 공유 읽기 잠금으로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = roomRepositoryAdapter.findActiveByIdForRead(Room.Id("room-closed-001"))
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
     fun `자기 자신을 제외한 제목 중복 여부를 조회하면 중복되지 않은 것으로 반환한다`() = runTest {
         // when
         val result = roomRepositoryAdapter.existsByTitleExceptRoomId(
