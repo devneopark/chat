@@ -179,6 +179,58 @@ class ParticipantRepositoryAdapterTest {
     }
 
     @Test
+    fun `활성 참여자들을 for update로 조회하면 요청자와 대상자를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdsForUpdate(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-001"),
+            User.Id("participant-user-004")
+        )
+
+        // then
+        assertEquals(
+            setOf("participant-user-001", "participant-user-004"),
+            result.map { it.userId.value }.toSet()
+        )
+        assertEquals(
+            setOf(ParticipantRole.HOST, ParticipantRole.GUEST),
+            result.map { it.role }.toSet()
+        )
+    }
+
+    @Test
+    fun `탈퇴한 참여자는 for update 조회에서 제외한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdsForUpdate(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-001"),
+            User.Id("participant-user-005")
+        )
+
+        // then
+        assertEquals(listOf("participant-user-001"), result.map { it.userId.value })
+    }
+
+    @Test
+    fun `참여자를 수정하면 활성 참여자의 역할을 변경한다`() = runTest {
+        // given
+        val participant = Participant(
+            Participant.Id("participant-active-guest-002"),
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-006"),
+            ParticipantRole.HOST,
+            Instant.parse("2026-09-14T01:00:00Z")
+        )
+
+        // when
+        participantRepositoryAdapter.updateRole(participant.id, participant.role)
+
+        // then
+        val entity = participantEntityRepository.findById(participant.id.value)
+        assertEquals("HOST", entity?.role)
+    }
+
+    @Test
     fun `존재하지 않는 room을 참조하는 참여자는 저장할 수 없다`() = runTest {
         // given
         val participant = Participant(

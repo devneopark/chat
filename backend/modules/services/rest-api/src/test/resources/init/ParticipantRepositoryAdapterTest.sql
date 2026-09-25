@@ -66,6 +66,18 @@ insert into users(
     'Participant Fifth User'
 );
 
+insert into users(
+    id,
+    principal,
+    password_hash,
+    display_name
+) values (
+    'participant-user-006',
+    'participant.sixth.principal',
+    'seed-hashed-password',
+    'Participant Sixth User'
+);
+
 insert into participant(
     id,
     room_id,
@@ -92,6 +104,20 @@ insert into participant(
     'participant-user-004',
     'GUEST',
     '2026-09-14T01:00:00Z'
+);
+
+insert into participant(
+    id,
+    room_id,
+    user_id,
+    participant_role,
+    joined_at
+) values (
+    'participant-active-guest-002',
+    'participant-room-001',
+    'participant-user-006',
+    'GUEST',
+    '2026-09-14T04:00:00Z'
 );
 
 insert into participant(
