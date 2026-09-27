@@ -3,6 +3,7 @@ package com.devneopark.chat.restapi.framework.advice
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.lib.shared.kernel.exception.ExceptionBase
 import com.devneopark.chat.restapi.context.iam.application.exception.IamContextException
+import com.devneopark.chat.restapi.context.room.application.exception.RoomContextException
 import com.devneopark.chat.restapi.context.user.application.exception.UserContextException
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ExceptionResponse
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse
@@ -81,6 +82,15 @@ class WebFluxGlobalExceptionAdvice {
     /** User 컨텍스트 예외를 공통 400 오류 응답으로 변환한다. */
     @ExceptionHandler(UserContextException::class)
     suspend fun on(cause: UserContextException): ResponseEntity<ExceptionResponse> {
+        val httpStatus = HttpStatus.BAD_REQUEST
+        val response = ExceptionResponse(cause.code, cause.message)
+        logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
+        return ResponseEntity.status(httpStatus).body(response)
+    }
+
+    /** Room 컨텍스트 예외를 공통 400 오류 응답으로 변환한다. */
+    @ExceptionHandler(RoomContextException::class)
+    suspend fun on(cause: RoomContextException): ResponseEntity<ExceptionResponse> {
         val httpStatus = HttpStatus.BAD_REQUEST
         val response = ExceptionResponse(cause.code, cause.message)
         logger.debug("API failed with {}. exception-code={} message={}", httpStatus, response.code, response.message, cause)
