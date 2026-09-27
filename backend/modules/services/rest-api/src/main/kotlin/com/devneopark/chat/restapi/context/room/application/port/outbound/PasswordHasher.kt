@@ -4,4 +4,6 @@ interface PasswordHasher {
 
     suspend fun hash(rawPassword: String): String
 
+    suspend fun matches(rawPassword: String, passwordHash: String): Boolean
+
 }

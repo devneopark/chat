@@ -25,7 +25,10 @@ interface AdmissionSlotRepositoryPort {
         limit: Int
     ): List<AdmissionSlotId>
 
+    suspend fun findFirstEmptyByRoomIdForUpdateSkipLocked(roomId: RoomId): AdmissionSlotId?
+
     // Update
+    suspend fun assignParticipant(slotId: AdmissionSlotId, participantId: ParticipantId)
 
     // Delete
     /**

@@ -55,6 +55,26 @@ interface ParticipantEntityRepository : CoroutineCrudRepository<ParticipantEntit
             joined_at
         from participant
         where room_id = :roomId
+            and user_id = :userId
+            and exited_at is null
+        for share
+        """
+    )
+    suspend fun findActiveByRoomIdAndUserIdForRead(
+        roomId: String,
+        userId: String
+    ): ParticipantEntity?
+
+    @Query(
+        """
+        select
+            id,
+            room_id,
+            user_id,
+            participant_role,
+            joined_at
+        from participant
+        where room_id = :roomId
             and user_id in (:requesterUserId, :targetUserId)
             and exited_at is null
         order by user_id

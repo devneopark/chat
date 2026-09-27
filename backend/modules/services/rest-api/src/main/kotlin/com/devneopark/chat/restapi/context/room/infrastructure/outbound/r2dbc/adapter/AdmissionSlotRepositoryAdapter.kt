@@ -110,6 +110,21 @@ class AdmissionSlotRepositoryAdapter(
             .map { entity -> entity.toDomain().id }
     }
 
+    override suspend fun findFirstEmptyByRoomIdForUpdateSkipLocked(roomId: RoomId): AdmissionSlotId? {
+        return admissionSlotEntityRepository
+            .findFirstEmptyByRoomIdForUpdateSkipLocked(roomId.value)
+            ?.toDomain()
+            ?.id
+    }
+
+    override suspend fun assignParticipant(slotId: AdmissionSlotId, participantId: ParticipantId) {
+        admissionSlotEntityRepository.assignParticipant(
+            slotId.roomId,
+            slotId.number,
+            participantId.value
+        )
+    }
+
     override suspend fun deleteAllByIds(slots: List<AdmissionSlotId>) {
         if (slots.isEmpty()) {
             return

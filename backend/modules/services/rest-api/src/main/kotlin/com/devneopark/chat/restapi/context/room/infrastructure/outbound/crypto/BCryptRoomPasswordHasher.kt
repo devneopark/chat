@@ -16,4 +16,8 @@ class BCryptRoomPasswordHasher(
         return hash ?: "null"
     }
 
+    override suspend fun matches(rawPassword: String, passwordHash: String): Boolean {
+        return passwordEncoder.matches(rawPassword, passwordHash)
+    }
+
 }

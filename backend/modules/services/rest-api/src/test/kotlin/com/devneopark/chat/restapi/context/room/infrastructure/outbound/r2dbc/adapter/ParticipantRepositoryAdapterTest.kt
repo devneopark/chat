@@ -179,6 +179,45 @@ class ParticipantRepositoryAdapterTest {
     }
 
     @Test
+    fun `활성 참여자를 조회하면 참여자를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-004")
+        )
+
+        // then
+        assertEquals("participant-active-guest-001", result?.id?.value)
+        assertEquals("participant-room-001", result?.roomId?.value)
+        assertEquals("participant-user-004", result?.userId?.value)
+        assertEquals(ParticipantRole.GUEST, result?.role)
+    }
+
+    @Test
+    fun `탈퇴한 참여자를 활성 참여자로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-005")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `존재하지 않는 참여자를 활성 참여자로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForRead(
+            Room.Id("participant-room-001"),
+            User.Id("participant-missing-001")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
     fun `활성 참여자들을 for update로 조회하면 요청자와 대상자를 반환한다`() = runTest {
         // when
         val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdsForUpdate(

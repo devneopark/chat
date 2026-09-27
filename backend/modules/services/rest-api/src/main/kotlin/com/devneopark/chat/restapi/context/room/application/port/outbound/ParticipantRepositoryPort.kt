@@ -14,6 +14,8 @@ interface ParticipantRepositoryPort {
     // Read
     suspend fun existsActiveHostForRead(roomId: RoomId, userId: UserId): Boolean
 
+    suspend fun findActiveByRoomIdAndUserIdForRead(roomId: RoomId, userId: UserId): Participant?
+
     suspend fun findActiveByRoomIdAndUserIdsForUpdate(
         roomId: RoomId,
         requesterUserId: UserId,

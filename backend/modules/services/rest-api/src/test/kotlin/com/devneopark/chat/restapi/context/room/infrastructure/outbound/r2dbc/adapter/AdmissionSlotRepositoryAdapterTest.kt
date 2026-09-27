@@ -160,6 +160,83 @@ class AdmissionSlotRepositoryAdapterTest {
     }
 
     @Test
+    fun `첫 번째 빈 슬롯을 잠금 조회하면 번호가 작은 슬롯을 반환한다`() = runTest {
+        // when
+        val result = admissionSlotRepositoryAdapter.findFirstEmptyByRoomIdForUpdateSkipLocked(
+            Room.Id("slot-join-001")
+        )
+
+        // then
+        assertEquals("slot-join-001" to 2, result?.roomId to result?.number)
+    }
+
+    @Test
+    fun `빈 슬롯이 없으면 첫 번째 빈 슬롯 잠금 조회가 null을 반환한다`() = runTest {
+        // when
+        val result = admissionSlotRepositoryAdapter.findFirstEmptyByRoomIdForUpdateSkipLocked(
+            Room.Id("slot-no-empty-001")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `슬롯을 점유하면 참여자 식별자를 저장한다`() = runTest {
+        // given
+        val slotId = AdmissionSlot.Id("slot-assign-001", 1)
+        val participantId = Participant.Id("slot-participant-003")
+
+        // when
+        admissionSlotRepositoryAdapter.assignParticipant(slotId, participantId)
+
+        // then
+        val occupantParticipantId = databaseClient.sql(
+            """
+            select occupant_participant_id
+            from admission_slot
+            where room_id = :roomId
+                and slot_number = :slotNumber
+            """.trimIndent()
+        )
+            .bind("roomId", slotId.roomId)
+            .bind("slotNumber", slotId.number)
+            .map { row -> row.get("occupant_participant_id", String::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(participantId.value, occupantParticipantId)
+    }
+
+    @Test
+    fun `이미 점유된 슬롯은 다른 참여자로 덮어쓰지 않는다`() = runTest {
+        // given
+        val slotId = AdmissionSlot.Id("slot-join-001", 1)
+        val existingParticipantId = Participant.Id("slot-participant-002")
+        val newParticipantId = Participant.Id("slot-participant-003")
+
+        // when
+        admissionSlotRepositoryAdapter.assignParticipant(slotId, newParticipantId)
+
+        // then
+        val occupantParticipantId = databaseClient.sql(
+            """
+            select occupant_participant_id
+            from admission_slot
+            where room_id = :roomId
+                and slot_number = :slotNumber
+            """.trimIndent()
+        )
+            .bind("roomId", slotId.roomId)
+            .bind("slotNumber", slotId.number)
+            .map { row -> row.get("occupant_participant_id", String::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(existingParticipantId.value, occupantParticipantId)
+    }
+
+    @Test
     fun `슬롯 식별자 목록으로 슬롯을 일괄 삭제한다`() = runTest {
         // given
         val roomId = Room.Id("slot-delete-001")

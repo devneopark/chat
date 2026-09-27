@@ -27,6 +27,12 @@ class ParticipantRepositoryAdapter(
         return activeHost != null
     }
 
+    override suspend fun findActiveByRoomIdAndUserIdForRead(roomId: RoomId, userId: UserId): Participant? {
+        return participantEntityRepository
+            .findActiveByRoomIdAndUserIdForRead(roomId.value, userId.value)
+            ?.toDomain()
+    }
+
     override suspend fun findActiveByRoomIdAndUserIdsForUpdate(
         roomId: RoomId,
         requesterUserId: UserId,
