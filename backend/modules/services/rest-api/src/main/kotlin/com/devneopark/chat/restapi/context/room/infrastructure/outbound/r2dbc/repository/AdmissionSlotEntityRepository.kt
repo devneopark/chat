@@ -76,4 +76,14 @@ interface AdmissionSlotEntityRepository : CoroutineCrudRepository<AdmissionSlotE
         participantId: String
     )
 
+    @Modifying
+    @Query(
+        """
+        update admission_slot
+        set occupant_participant_id = null
+        where occupant_participant_id = :participantId
+        """
+    )
+    suspend fun releaseParticipant(participantId: String)
+
 }

@@ -6,11 +6,13 @@ import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.repository.ParticipantEntityRepository
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -34,6 +36,9 @@ class ParticipantRepositoryAdapterTest {
 
     @Autowired
     lateinit var participantEntityRepository: ParticipantEntityRepository
+
+    @Autowired
+    lateinit var databaseClient: DatabaseClient
 
     companion object {
 
@@ -206,6 +211,66 @@ class ParticipantRepositoryAdapterTest {
     }
 
     @Test
+    fun `활성 참여자를 for update로 조회하면 참여자를 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForUpdate(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-004")
+        )
+
+        // then
+        assertEquals("participant-active-guest-001", result?.id?.value)
+        assertEquals(ParticipantRole.GUEST, result?.role)
+    }
+
+    @Test
+    fun `존재하지 않는 참여자를 for update로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForUpdate(
+            Room.Id("participant-room-001"),
+            User.Id("participant-missing-001")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `탈퇴한 참여자를 for update로 조회하면 null을 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForUpdate(
+            Room.Id("participant-room-001"),
+            User.Id("participant-user-005")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `가장 오래된 활성 게스트를 for update로 조회한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findOldestActiveGuestForUpdate(
+            Room.Id("participant-room-001")
+        )
+
+        // then
+        assertEquals("participant-active-guest-001", result?.id?.value)
+        assertEquals("participant-user-004", result?.userId?.value)
+    }
+
+    @Test
+    fun `활성 게스트가 없으면 가장 오래된 활성 게스트 조회가 null을 반환한다`() = runTest {
+        // when
+        val result = participantRepositoryAdapter.findOldestActiveGuestForUpdate(
+            Room.Id("participant-host-only-room-001")
+        )
+
+        // then
+        assertEquals(null, result)
+    }
+
+    @Test
     fun `존재하지 않는 참여자를 활성 참여자로 조회하면 null을 반환한다`() = runTest {
         // when
         val result = participantRepositoryAdapter.findActiveByRoomIdAndUserIdForRead(
@@ -267,6 +332,59 @@ class ParticipantRepositoryAdapterTest {
         // then
         val entity = participantEntityRepository.findById(participant.id.value)
         assertEquals("HOST", entity?.role)
+    }
+
+    @Test
+    fun `활성 참여자를 퇴장 처리하면 exited_at을 저장한다`() = runTest {
+        // given
+        val participantId = Participant.Id("participant-exit-001")
+        val exitedAt = Instant.parse("2026-09-16T00:00:00Z")
+
+        // when
+        participantRepositoryAdapter.markExited(participantId, exitedAt)
+
+        // then
+        val storedExitedAt = databaseClient.sql(
+            """
+            select exited_at
+            from participant
+            where id = :id
+            """.trimIndent()
+        )
+            .bind("id", participantId.value)
+            .map { row -> row.get("exited_at", java.time.Instant::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(exitedAt.toString(), storedExitedAt.toString())
+    }
+
+    @Test
+    fun `이미 퇴장한 참여자는 다시 퇴장 처리하지 않는다`() = runTest {
+        // given
+        val participantId = Participant.Id("participant-exited-only-001")
+        val originalExitedAt = Instant.parse("2026-09-15T00:00:00Z")
+
+        // when
+        participantRepositoryAdapter.markExited(
+            participantId,
+            Instant.parse("2026-09-16T00:00:00Z")
+        )
+
+        // then
+        val storedExitedAt = databaseClient.sql(
+            """
+            select exited_at
+            from participant
+            where id = :id
+            """.trimIndent()
+        )
+            .bind("id", participantId.value)
+            .map { row -> row.get("exited_at", java.time.Instant::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(originalExitedAt.toString(), storedExitedAt.toString())
     }
 
     @Test

@@ -6,6 +6,8 @@ import com.devneopark.chat.restapi.context.room.application.port.outbound.RoomRe
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.model.RoomEntity
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.repository.RoomEntityRepository
 import org.springframework.stereotype.Repository
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 @Repository
 class RoomRepositoryAdapter(
@@ -40,6 +42,10 @@ class RoomRepositoryAdapter(
     override suspend fun update(room: Room): Room {
         roomEntityRepository.updateRoom(RoomEntity.from(room))
         return room
+    }
+
+    override suspend fun close(roomId: RoomId, closedAt: Instant) {
+        roomEntityRepository.close(roomId.value, closedAt.toJavaInstant())
     }
 
 }

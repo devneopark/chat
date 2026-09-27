@@ -5,6 +5,7 @@ import com.devneopark.chat.lib.domain.participant.model.Participant
 import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
 import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -234,6 +235,57 @@ class AdmissionSlotRepositoryAdapterTest {
             .awaitSingle()
 
         assertEquals(existingParticipantId.value, occupantParticipantId)
+    }
+
+    @Test
+    fun `참여자가 퇴장하면 점유 중인 슬롯을 비운다`() = runTest {
+        // given
+        val participantId = Participant.Id("slot-participant-release-001")
+
+        // when
+        admissionSlotRepositoryAdapter.releaseParticipant(participantId)
+
+        // then
+        val isEmpty = databaseClient.sql(
+            """
+            select occupant_participant_id is null as is_empty
+            from admission_slot
+            where room_id = :roomId
+                and slot_number = :slotNumber
+            """.trimIndent()
+        )
+            .bind("roomId", "slot-release-001")
+            .bind("slotNumber", 1)
+            .map { row -> row.get("is_empty", Boolean::class.javaObjectType)!! }
+            .one()
+            .awaitSingleOrNull()
+
+        assertEquals(true, isEmpty)
+    }
+
+    @Test
+    fun `점유하지 않은 참여자를 해제해도 슬롯을 변경하지 않는다`() = runTest {
+        // when
+        admissionSlotRepositoryAdapter.releaseParticipant(
+            Participant.Id("slot-participant-missing-001")
+        )
+
+        // then
+        val occupantParticipantId = databaseClient.sql(
+            """
+            select occupant_participant_id
+            from admission_slot
+            where room_id = :roomId
+                and slot_number = :slotNumber
+            """.trimIndent()
+        )
+            .bind("roomId", "slot-join-001")
+            .bind("slotNumber", 1)
+            .map { row -> row.get("occupant_participant_id", String::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals("slot-participant-002", occupantParticipantId)
     }
 
     @Test

@@ -125,6 +125,10 @@ class AdmissionSlotRepositoryAdapter(
         )
     }
 
+    override suspend fun releaseParticipant(participantId: ParticipantId) {
+        admissionSlotEntityRepository.releaseParticipant(participantId.value)
+    }
+
     override suspend fun deleteAllByIds(slots: List<AdmissionSlotId>) {
         if (slots.isEmpty()) {
             return

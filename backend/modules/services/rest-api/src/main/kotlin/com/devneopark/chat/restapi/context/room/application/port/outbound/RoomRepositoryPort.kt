@@ -2,6 +2,7 @@ package com.devneopark.chat.restapi.context.room.application.port.outbound
 
 import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.lib.domain.room.reference.RoomId
+import kotlin.time.Instant
 
 interface RoomRepositoryPort {
 
@@ -19,6 +20,8 @@ interface RoomRepositoryPort {
 
     // Update
     suspend fun update(room: Room): Room
+
+    suspend fun close(roomId: RoomId, closedAt: Instant)
 
     // Delete
 

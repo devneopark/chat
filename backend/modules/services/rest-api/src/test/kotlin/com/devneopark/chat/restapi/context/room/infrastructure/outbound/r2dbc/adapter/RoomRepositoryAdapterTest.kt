@@ -3,11 +3,13 @@ package com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.a
 import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.repository.RoomEntityRepository
 import com.devneopark.chat.restapi.shared.infrastructure.SharedPostgresContainer
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -19,6 +21,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.toKotlinInstant
 
 @DataR2dbcTest
 @ActiveProfiles("test")
@@ -30,6 +33,9 @@ class RoomRepositoryAdapterTest {
 
     @Autowired
     lateinit var roomEntityRepository: RoomEntityRepository
+
+    @Autowired
+    lateinit var databaseClient: DatabaseClient
 
     companion object {
 
@@ -239,6 +245,58 @@ class RoomRepositoryAdapterTest {
         assertFailsWith<DataIntegrityViolationException> {
             roomRepositoryAdapter.insert(room)
         }
+    }
+
+    @Test
+    fun `활성 채팅방을 폐쇄하면 활성 채팅방 조회에서 제외한다`() = runTest {
+        // when
+        val closedAt = java.time.Instant.parse("2026-09-16T00:00:00Z")
+        roomRepositoryAdapter.close(
+            Room.Id("room-close-001"),
+            closedAt.toKotlinInstant()
+        )
+
+        // then
+        val result = roomRepositoryAdapter.findActiveByIdForRead(Room.Id("room-close-001"))
+        assertEquals(null, result)
+        val storedClosedAt = databaseClient.sql(
+            """
+            select closed_at
+            from room
+            where id = :id
+            """.trimIndent()
+        )
+            .bind("id", "room-close-001")
+            .map { row -> row.get("closed_at", java.time.Instant::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+        assertEquals(closedAt.toString(), storedClosedAt.toString())
+    }
+
+    @Test
+    fun `이미 폐쇄된 채팅방은 다시 폐쇄해도 폐쇄 시각을 변경하지 않는다`() = runTest {
+        // given
+        val originalClosedAt = java.time.Instant.parse("2026-09-15T00:00:00Z")
+
+        // when
+        roomRepositoryAdapter.close(
+            Room.Id("room-closed-001"),
+            java.time.Instant.parse("2026-09-16T00:00:00Z").toKotlinInstant()
+        )
+
+        // then
+        val storedClosedAt = databaseClient.sql(
+            """
+            select closed_at
+            from room
+            where id = :id
+            """.trimIndent()
+        )
+            .bind("id", "room-closed-001")
+            .map { row -> row.get("closed_at", java.time.Instant::class.javaObjectType)!! }
+            .one()
+            .awaitSingle()
+        assertEquals(originalClosedAt.toString(), storedClosedAt.toString())
     }
 
 }

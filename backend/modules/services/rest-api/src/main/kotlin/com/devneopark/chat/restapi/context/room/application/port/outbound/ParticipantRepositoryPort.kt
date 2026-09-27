@@ -5,6 +5,7 @@ import com.devneopark.chat.lib.domain.participant.model.ParticipantRole
 import com.devneopark.chat.lib.domain.participant.reference.ParticipantId
 import com.devneopark.chat.lib.domain.room.reference.RoomId
 import com.devneopark.chat.lib.domain.user.reference.UserId
+import kotlin.time.Instant
 
 interface ParticipantRepositoryPort {
 
@@ -16,6 +17,10 @@ interface ParticipantRepositoryPort {
 
     suspend fun findActiveByRoomIdAndUserIdForRead(roomId: RoomId, userId: UserId): Participant?
 
+    suspend fun findActiveByRoomIdAndUserIdForUpdate(roomId: RoomId, userId: UserId): Participant?
+
+    suspend fun findOldestActiveGuestForUpdate(roomId: RoomId): Participant?
+
     suspend fun findActiveByRoomIdAndUserIdsForUpdate(
         roomId: RoomId,
         requesterUserId: UserId,
@@ -24,6 +29,8 @@ interface ParticipantRepositoryPort {
 
     // Update
     suspend fun updateRole(participantId: ParticipantId, role: ParticipantRole)
+
+    suspend fun markExited(participantId: ParticipantId, exitedAt: Instant)
 
     // Delete
 

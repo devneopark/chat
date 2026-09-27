@@ -88,4 +88,15 @@ interface RoomEntityRepository : CoroutineCrudRepository<RoomEntity, String> {
     )
     suspend fun updateRoom(entity: RoomEntity)
 
+    @Modifying
+    @Query(
+        """
+        update room
+        set closed_at = :closedAt
+        where id = :id
+            and closed_at is null
+        """
+    )
+    suspend fun close(id: String, closedAt: java.time.Instant)
+
 }

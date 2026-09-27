@@ -20,6 +20,14 @@ insert into room(
 
 insert into room(
     id,
+    title
+) values (
+    'room-close-001',
+    'Room To Close'
+);
+
+insert into room(
+    id,
     title,
     closed_at
 ) values (

@@ -49,7 +49,8 @@ insert into room(
     title
 ) values
     ('slot-assign-001', 'Slot Assign Room'),
-    ('slot-no-empty-001', 'Slot No Empty Room');
+    ('slot-no-empty-001', 'Slot No Empty Room'),
+    ('slot-release-001', 'Slot Release Room');
 
 insert into participant(
     id,
@@ -59,7 +60,8 @@ insert into participant(
     joined_at
 ) values
     ('slot-participant-003', 'slot-assign-001', 'slot-user-002', 'HOST', '2026-09-15T00:00:00Z'),
-    ('slot-participant-004', 'slot-no-empty-001', 'slot-user-002', 'HOST', '2026-09-15T00:00:00Z');
+    ('slot-participant-004', 'slot-no-empty-001', 'slot-user-002', 'HOST', '2026-09-15T00:00:00Z'),
+    ('slot-participant-release-001', 'slot-release-001', 'slot-user-001', 'GUEST', '2026-09-15T00:00:00Z');
 
 insert into room(
     id,
@@ -116,4 +118,5 @@ insert into admission_slot(
     ('slot-join-001', 2, null),
     ('slot-join-001', 3, null),
     ('slot-assign-001', 1, null),
-    ('slot-no-empty-001', 1, 'slot-participant-004');
+    ('slot-no-empty-001', 1, 'slot-participant-004'),
+    ('slot-release-001', 1, 'slot-participant-release-001');

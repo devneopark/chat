@@ -9,6 +9,8 @@ import com.devneopark.chat.restapi.context.room.application.port.outbound.Partic
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.model.ParticipantEntity
 import com.devneopark.chat.restapi.context.room.infrastructure.outbound.r2dbc.repository.ParticipantEntityRepository
 import org.springframework.stereotype.Repository
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 @Repository
 class ParticipantRepositoryAdapter(
@@ -33,6 +35,18 @@ class ParticipantRepositoryAdapter(
             ?.toDomain()
     }
 
+    override suspend fun findActiveByRoomIdAndUserIdForUpdate(roomId: RoomId, userId: UserId): Participant? {
+        return participantEntityRepository
+            .findActiveByRoomIdAndUserIdForUpdate(roomId.value, userId.value)
+            ?.toDomain()
+    }
+
+    override suspend fun findOldestActiveGuestForUpdate(roomId: RoomId): Participant? {
+        return participantEntityRepository
+            .findOldestActiveGuestForUpdate(roomId.value)
+            ?.toDomain()
+    }
+
     override suspend fun findActiveByRoomIdAndUserIdsForUpdate(
         roomId: RoomId,
         requesterUserId: UserId,
@@ -49,6 +63,10 @@ class ParticipantRepositoryAdapter(
 
     override suspend fun updateRole(participantId: ParticipantId, role: ParticipantRole) {
         participantEntityRepository.updateRole(participantId.value, role.name)
+    }
+
+    override suspend fun markExited(participantId: ParticipantId, exitedAt: Instant) {
+        participantEntityRepository.markExited(participantId.value, exitedAt.toJavaInstant())
     }
 
 }

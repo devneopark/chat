@@ -30,6 +30,8 @@ interface AdmissionSlotRepositoryPort {
     // Update
     suspend fun assignParticipant(slotId: AdmissionSlotId, participantId: ParticipantId)
 
+    suspend fun releaseParticipant(participantId: ParticipantId)
+
     // Delete
     /**
      * 슬롯 식별자로 슬롯을 일괄 삭제한다.
