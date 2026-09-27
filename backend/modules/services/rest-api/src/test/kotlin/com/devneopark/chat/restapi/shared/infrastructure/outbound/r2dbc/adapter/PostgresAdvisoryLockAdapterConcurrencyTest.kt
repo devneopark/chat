@@ -6,12 +6,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.r2dbc.test.autoconfigure.DataR2dbcTest
 import org.springframework.context.annotation.Import
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.r2dbc.connection.R2dbcTransactionManager
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -24,6 +26,7 @@ import kotlin.test.assertNull
 
 @DataR2dbcTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Import(PostgresAdvisoryLockAdapter::class)
 class PostgresAdvisoryLockAdapterConcurrencyTest {
 
@@ -90,13 +93,20 @@ class PostgresAdvisoryLockAdapterConcurrencyTest {
 
         // when & then
         try {
-            assertNull(withTimeoutOrNull(300) { secondLockAcquired.await() })
+            val secondLockAcquiredWhileFirstHeld = withContext(
+                Dispatchers.Default.limitedParallelism(1)
+            ) {
+                withTimeoutOrNull(300) { secondLockAcquired.await() }
+            }
+            assertNull(secondLockAcquiredWhileFirstHeld)
         } finally {
             releaseFirstTransaction.complete(Unit)
         }
 
         firstTransaction.await()
-        withTimeout(1_000) { secondLockAcquired.await() }
+        withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(1_000) { secondLockAcquired.await() }
+        }
         secondTransaction.await()
     }
 
