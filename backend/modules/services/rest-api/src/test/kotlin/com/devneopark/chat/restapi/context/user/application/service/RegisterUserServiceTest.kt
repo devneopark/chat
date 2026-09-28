@@ -1,13 +1,13 @@
-package com.devneopark.chat.restapi.context.iam.application.service
+package com.devneopark.chat.restapi.context.user.application.service
 
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.DuplicatedPrincipalException
-import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
+import com.devneopark.chat.restapi.context.user.application.exception.DuplicatedPrincipalException
+import com.devneopark.chat.restapi.context.user.application.port.inbound.RegisterUserUseCase
+import com.devneopark.chat.restapi.context.user.application.port.outbound.PasswordHasher
+import com.devneopark.chat.restapi.context.user.application.port.outbound.UserRepositoryPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -29,7 +29,7 @@ import com.devneopark.chat.lib.domain.user.reference.ExceptionDefinition as User
 class RegisterUserServiceTest {
 
     @Mock
-    lateinit var iamUserRepositoryPort: IamUserRepositoryPort
+    lateinit var userRepositoryPort: UserRepositoryPort
 
     @Mock
     lateinit var idGenerator: IdGenerator
@@ -64,7 +64,7 @@ class RegisterUserServiceTest {
             .given(userProfileValidator)
             .validateDisplayName(anyString())
 
-        given(iamUserRepositoryPort.existsByPrincipal(anyString()))
+        given(userRepositoryPort.existsByPrincipal(anyString()))
             .willReturn(false)
 
         val idValue = "generated-id-value"
@@ -110,7 +110,7 @@ class RegisterUserServiceTest {
             .validatePassword(anyString())
         verifyNoInteractions(
             userProfileValidator,
-            iamUserRepositoryPort,
+            userRepositoryPort,
             idGenerator,
             passwordHasher
         )
@@ -147,7 +147,7 @@ class RegisterUserServiceTest {
             .validatePassword(command.rawPassword)
         verifyNoInteractions(
             userProfileValidator,
-            iamUserRepositoryPort,
+            userRepositoryPort,
             idGenerator,
             passwordHasher
         )
@@ -187,7 +187,7 @@ class RegisterUserServiceTest {
         verify(userProfileValidator)
             .validateDisplayName(command.displayName)
         verifyNoInteractions(
-            iamUserRepositoryPort,
+            userRepositoryPort,
             idGenerator,
             passwordHasher
         )
@@ -213,7 +213,7 @@ class RegisterUserServiceTest {
         willDoNothing()
             .given(userProfileValidator)
             .validateDisplayName(anyString())
-        given(iamUserRepositoryPort.existsByPrincipal(anyString()))
+        given(userRepositoryPort.existsByPrincipal(anyString()))
             .willReturn(true)
 
         // when
@@ -222,9 +222,9 @@ class RegisterUserServiceTest {
         }
 
         // then
-        assertEquals("2-001-001", exception.code)
+        assertEquals("2-002-003", exception.code)
         assertEquals("Principal duplicated.", exception.message)
-        verify(iamUserRepositoryPort, only())
+        verify(userRepositoryPort, only())
             .existsByPrincipal(anyString())
         verifyNoInteractions(
             idGenerator,

@@ -17,6 +17,18 @@ class UserRepositoryAdapter(
 
 ) : UserRepositoryPort {
 
+    /** User 도메인 객체를 저장하고 입력받은 객체를 반환한다. */
+    override suspend fun insert(user: User): User {
+        val entity = UserEntity.from(user)
+        userEntityRepository.insert(entity)
+        return user
+    }
+
+    /** 활성 사용자 중 principal이 존재하는지 확인한다. */
+    override suspend fun existsByPrincipal(principal: String): Boolean {
+        return userEntityRepository.existsByPrincipal(principal)
+    }
+
     /** 활성 사용자 엔티티를 조회해 User 도메인 객체로 변환한다. */
     override suspend fun findById(id: UserId): User? {
         return userEntityRepository.findById(id.value)

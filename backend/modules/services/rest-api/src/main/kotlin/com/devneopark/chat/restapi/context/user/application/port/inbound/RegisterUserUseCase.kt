@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.context.iam.application.port.inbound
+package com.devneopark.chat.restapi.context.user.application.port.inbound
 
 /** 사용자 계정을 생성하는 응용 계층의 진입 계약이다. */
 interface RegisterUserUseCase {

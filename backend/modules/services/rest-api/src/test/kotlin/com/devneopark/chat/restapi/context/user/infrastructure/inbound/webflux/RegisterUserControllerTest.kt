@@ -1,9 +1,9 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux
+package com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux
 
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.AuthenticateAccessCredentialUseCase
-import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller.RegisterUserController
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RegisterUserApi
+import com.devneopark.chat.restapi.context.user.application.port.inbound.RegisterUserUseCase
+import com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux.controller.RegisterUserController
+import com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux.specification.RegisterUserApi
 import com.devneopark.chat.restapi.framework.advice.WebFluxGlobalExceptionAdvice
 import com.devneopark.chat.restapi.framework.config.WebFluxSecurityConfig
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.FieldBindingExceptionResponse

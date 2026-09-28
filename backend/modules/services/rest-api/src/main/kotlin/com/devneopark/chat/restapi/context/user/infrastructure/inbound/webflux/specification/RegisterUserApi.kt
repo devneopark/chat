@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification
+package com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux.specification
 
 import com.devneopark.chat.restapi.shared.infrastructure.inbound.webflux.ApiResponseBase
 import io.swagger.v3.oas.annotations.Operation

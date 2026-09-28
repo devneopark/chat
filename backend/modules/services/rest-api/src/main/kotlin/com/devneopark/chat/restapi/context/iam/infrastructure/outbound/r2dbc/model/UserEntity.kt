@@ -16,20 +16,6 @@ class UserEntity {
 
     lateinit var displayName: String
 
-    companion object {
-
-        fun from(user: User): UserEntity {
-            val entity = UserEntity().apply {
-                id = user.id.value
-                principal = user.credential.principal
-                passwordHash = user.credential.passwordHash
-                displayName = user.profile.displayName
-            }
-            return entity
-        }
-
-    }
-
     fun toDomain(): User {
         val userId = User.Id.from(this.id)
         val credential = Credential(this.principal, this.passwordHash)

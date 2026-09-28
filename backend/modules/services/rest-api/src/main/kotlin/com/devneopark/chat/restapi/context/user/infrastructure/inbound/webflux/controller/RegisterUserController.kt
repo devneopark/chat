@@ -1,7 +1,7 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.controller
+package com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux.controller
 
-import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
-import com.devneopark.chat.restapi.context.iam.infrastructure.inbound.webflux.specification.RegisterUserApi
+import com.devneopark.chat.restapi.context.user.application.port.inbound.RegisterUserUseCase
+import com.devneopark.chat.restapi.context.user.infrastructure.inbound.webflux.specification.RegisterUserApi
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController

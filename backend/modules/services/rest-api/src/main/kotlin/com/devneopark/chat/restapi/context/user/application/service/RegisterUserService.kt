@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.context.iam.application.service
+package com.devneopark.chat.restapi.context.user.application.service
 
 import com.devneopark.chat.lib.domain.user.model.Credential
 import com.devneopark.chat.lib.domain.user.model.Profile
@@ -6,17 +6,17 @@ import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
-import com.devneopark.chat.restapi.context.iam.application.exception.DuplicatedPrincipalException
-import com.devneopark.chat.restapi.context.iam.application.port.inbound.RegisterUserUseCase
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
+import com.devneopark.chat.restapi.context.user.application.exception.DuplicatedPrincipalException
+import com.devneopark.chat.restapi.context.user.application.port.inbound.RegisterUserUseCase
+import com.devneopark.chat.restapi.context.user.application.port.outbound.PasswordHasher
+import com.devneopark.chat.restapi.context.user.application.port.outbound.UserRepositoryPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class RegisterUserService(
 
-    private val iamUserRepositoryPort: IamUserRepositoryPort,
+    private val userRepositoryPort: UserRepositoryPort,
 
     private val idGenerator: IdGenerator,
 
@@ -34,7 +34,7 @@ class RegisterUserService(
         userCredentialValidator.validatePassword(command.rawPassword)
         userProfileValidator.validateDisplayName(command.displayName)
 
-        val isPrincipalDuplicated = iamUserRepositoryPort.existsByPrincipal(command.principal)
+        val isPrincipalDuplicated = userRepositoryPort.existsByPrincipal(command.principal)
         if (isPrincipalDuplicated) {
             throw DuplicatedPrincipalException()
         }
@@ -46,7 +46,7 @@ class RegisterUserService(
             Credential(command.principal, passwordHash),
             Profile(command.displayName)
         )
-        iamUserRepositoryPort.insert(user)
+        userRepositoryPort.insert(user)
 
         return RegisterUserUseCase.Result(idValue)
     }
