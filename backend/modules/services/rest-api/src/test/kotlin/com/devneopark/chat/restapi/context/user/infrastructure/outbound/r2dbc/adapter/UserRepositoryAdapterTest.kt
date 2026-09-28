@@ -17,10 +17,12 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import java.sql.DriverManager
+import java.time.Instant
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.time.toKotlinInstant
 
 @DataR2dbcTest
 @ActiveProfiles("test")
@@ -80,6 +82,28 @@ class UserRepositoryAdapterTest {
     }
 
     @Test
+    fun `id로 조회하면서 쓰기 잠금을 획득하면 User로 변환한다`() = runTest {
+        val result = userRepositoryAdapter.findByIdForUpdate(User.Id("user-context-find-001"))
+
+        assertNotNull(result)
+        assertEquals("user-context-find-001", result.id.value)
+    }
+
+    @Test
+    fun `id에 해당하는 사용자가 없으면 쓰기 잠금 조회도 null을 반환한다`() = runTest {
+        val result = userRepositoryAdapter.findByIdForUpdate(User.Id("user-context-missing-001"))
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `id에 해당하는 사용자가 탈퇴 상태면 쓰기 잠금 조회도 null을 반환한다`() = runTest {
+        val result = userRepositoryAdapter.findByIdForUpdate(User.Id("user-context-withdrawn-001"))
+
+        assertNull(result)
+    }
+
+    @Test
     fun `id에 해당하는 사용자가 없으면 null을 반환한다`() = runTest {
         val result = userRepositoryAdapter.findById(User.Id("user-context-missing-001"))
 
@@ -130,6 +154,68 @@ class UserRepositoryAdapterTest {
             .awaitSingle()
 
         assertEquals("Withdrawn User", displayName)
+    }
+
+    @Test
+    fun `활성 사용자를 탈퇴 상태로 변경한다`() = runTest {
+        // given
+        val userId = User.Id("user-context-update-001")
+        val withdrawnAt = Instant.parse("2026-09-28T00:00:00Z")
+
+        // when
+        userRepositoryAdapter.withdraw(userId, withdrawnAt.toKotlinInstant())
+
+        // then
+        val result = databaseClient.sql(
+            "select withdrawn_at from users where id = :id"
+        )
+            .bind("id", userId.value)
+            .map { row -> row.get("withdrawn_at", Instant::class.java)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(withdrawnAt, result)
+        assertNull(userRepositoryAdapter.findById(userId))
+    }
+
+    @Test
+    fun `탈퇴한 사용자를 다시 탈퇴 처리해도 기존 탈퇴 시각을 유지한다`() = runTest {
+        // given
+        val userId = User.Id("user-context-withdrawn-001")
+        val before = databaseClient.sql(
+            "select withdrawn_at from users where id = :id"
+        )
+            .bind("id", userId.value)
+            .map { row -> row.get("withdrawn_at", Instant::class.java)!! }
+            .one()
+            .awaitSingle()
+
+        // when
+        userRepositoryAdapter.withdraw(
+            userId,
+            Instant.parse("2026-09-28T00:00:00Z").toKotlinInstant()
+        )
+
+        // then
+        val after = databaseClient.sql(
+            "select withdrawn_at from users where id = :id"
+        )
+            .bind("id", userId.value)
+            .map { row -> row.get("withdrawn_at", Instant::class.java)!! }
+            .one()
+            .awaitSingle()
+
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `존재하지 않는 사용자를 탈퇴 처리해도 오류가 발생하지 않는다`() = runTest {
+        userRepositoryAdapter.withdraw(
+            User.Id("user-context-missing-001"),
+            Instant.parse("2026-09-28T00:00:00Z").toKotlinInstant()
+        )
+
+        assertNull(userRepositoryAdapter.findById(User.Id("user-context-missing-001")))
     }
 
 }
