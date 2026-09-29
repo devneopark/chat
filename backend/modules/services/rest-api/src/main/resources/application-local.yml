@@ -19,16 +19,12 @@ chat:
       policy:
         validation:
           capacity: 20
-  domain:
-    room:
-      service:
-        validation:
           info:
             pattern:
               title: ^.{1,50}$
               password: ^[0-9a-zA-Z]{1,32}$
     user:
-      service:
+      policy:
         validation:
           credential:
             pattern:

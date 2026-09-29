@@ -1,14 +1,14 @@
 package com.devneopark.chat.restapi.framework.config
 
-import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
-import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
+import com.devneopark.chat.restapi.context.user.application.policy.UserCredentialPolicy
+import com.devneopark.chat.restapi.context.user.application.policy.UserProfilePolicy
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 
 @Configuration
-class UserDomainServiceConfig(
+class UserPolicyConfig(
 
     private val userCredentialPattern: UserCredentialPattern,
 
@@ -17,25 +17,25 @@ class UserDomainServiceConfig(
 ) {
 
     @Bean
-    fun userCredentialValidator(): UserCredentialValidator {
+    fun userCredentialPolicy(): UserCredentialPolicy {
         val principalRegex = Regex(userCredentialPattern.principal)
         val passwordRegex = Regex(userCredentialPattern.password)
-        return UserCredentialValidator(principalRegex, passwordRegex)
+        return UserCredentialPolicy(principalRegex, passwordRegex)
     }
 
     @Bean
-    fun userProfileValidator(): UserProfileValidator {
+    fun userProfilePolicy(): UserProfilePolicy {
         val displayNameRegex = Regex(userProfilePattern.displayName)
-        return UserProfileValidator(displayNameRegex)
+        return UserProfilePolicy(displayNameRegex)
     }
 
     @Component
     data class UserCredentialPattern(
 
-        @Value($$"${chat.domain.user.service.validation.credential.pattern.principal}")
+        @Value($$"${chat.application.user.policy.validation.credential.pattern.principal}")
         val principal: String,
 
-        @Value($$"${chat.domain.user.service.validation.credential.pattern.password}")
+        @Value($$"${chat.application.user.policy.validation.credential.pattern.password}")
         val password: String
 
     )
@@ -43,7 +43,7 @@ class UserDomainServiceConfig(
     @Component
     data class UserProfilePattern(
 
-        @Value($$"${chat.domain.user.service.validation.profile.pattern.displayName}")
+        @Value($$"${chat.application.user.policy.validation.profile.pattern.displayName}")
         val displayName: String
 
     )

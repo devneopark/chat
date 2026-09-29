@@ -13,10 +13,8 @@ dependencies {
     implementation("com.devneopark.chat.backend:domain-participant-model:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-room-reference:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-room-model:0.0.1-SNAPSHOT")
-    implementation("com.devneopark.chat.backend:domain-room-service:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-user-reference:0.0.1-SNAPSHOT")
     implementation("com.devneopark.chat.backend:domain-user-model:0.0.1-SNAPSHOT")
-    implementation("com.devneopark.chat.backend:domain-user-service:0.0.1-SNAPSHOT")
 
     // spring
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")

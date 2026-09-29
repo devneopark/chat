@@ -1,7 +1,7 @@
 package com.devneopark.chat.restapi.context.user.application.service
 
-import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
-import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
+import com.devneopark.chat.restapi.context.user.application.policy.UserCredentialPolicy
+import com.devneopark.chat.restapi.context.user.application.policy.UserProfilePolicy
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.user.application.exception.DuplicatedPrincipalException
@@ -35,10 +35,10 @@ class RegisterUserServiceTest {
     lateinit var idGenerator: IdGenerator
 
     @Mock
-    lateinit var userCredentialValidator: UserCredentialValidator
+    lateinit var userCredentialPolicy: UserCredentialPolicy
 
     @Mock
-    lateinit var userProfileValidator: UserProfileValidator
+    lateinit var userProfilePolicy: UserProfilePolicy
 
     @Mock
     lateinit var passwordHasher: PasswordHasher
@@ -55,13 +55,13 @@ class RegisterUserServiceTest {
             "display name"
         )
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePrincipal(anyString())
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePassword(anyString())
         willDoNothing()
-            .given(userProfileValidator)
+            .given(userProfilePolicy)
             .validateDisplayName(anyString())
 
         given(userRepositoryPort.existsByPrincipal(anyString()))
@@ -90,7 +90,7 @@ class RegisterUserServiceTest {
             "RawP@assword",
             "display name"
         )
-        given(userCredentialValidator.validatePrincipal(anyString()))
+        given(userCredentialPolicy.validatePrincipal(anyString()))
             .willThrow(DomainRuleViolationException(
                 UserExceptionDefinition.INVALID_USER_PRINCIPAL.code,
                 UserExceptionDefinition.INVALID_USER_PRINCIPAL.message
@@ -104,12 +104,12 @@ class RegisterUserServiceTest {
         // then
         assertEquals(UserExceptionDefinition.INVALID_USER_PRINCIPAL.code, exception.code)
         assertEquals(UserExceptionDefinition.INVALID_USER_PRINCIPAL.message, exception.message)
-        verify(userCredentialValidator)
+        verify(userCredentialPolicy)
             .validatePrincipal(principal)
-        verify(userCredentialValidator, never())
+        verify(userCredentialPolicy, never())
             .validatePassword(anyString())
         verifyNoInteractions(
-            userProfileValidator,
+            userProfilePolicy,
             userRepositoryPort,
             idGenerator,
             passwordHasher
@@ -127,9 +127,9 @@ class RegisterUserServiceTest {
             "display name"
         )
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePrincipal(anyString())
-        given(userCredentialValidator.validatePassword(rawPassword))
+        given(userCredentialPolicy.validatePassword(rawPassword))
             .willThrow(DomainRuleViolationException(
                 UserExceptionDefinition.INVALID_USER_PASSWORD.code,
                 UserExceptionDefinition.INVALID_USER_PASSWORD.message
@@ -143,10 +143,10 @@ class RegisterUserServiceTest {
         // then
         assertEquals(UserExceptionDefinition.INVALID_USER_PASSWORD.code, exception.code)
         assertEquals(UserExceptionDefinition.INVALID_USER_PASSWORD.message, exception.message)
-        verify(userCredentialValidator)
+        verify(userCredentialPolicy)
             .validatePassword(command.rawPassword)
         verifyNoInteractions(
-            userProfileValidator,
+            userProfilePolicy,
             userRepositoryPort,
             idGenerator,
             passwordHasher
@@ -165,12 +165,12 @@ class RegisterUserServiceTest {
             displayName
         )
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePrincipal(anyString())
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePassword(anyString())
-        given(userProfileValidator.validateDisplayName(displayName))
+        given(userProfilePolicy.validateDisplayName(displayName))
             .willThrow(DomainRuleViolationException(
                 UserExceptionDefinition.INVALID_USER_DISPLAY_NAME.code,
                 UserExceptionDefinition.INVALID_USER_DISPLAY_NAME.message
@@ -184,7 +184,7 @@ class RegisterUserServiceTest {
         // then
         assertEquals(UserExceptionDefinition.INVALID_USER_DISPLAY_NAME.code, exception.code)
         assertEquals(UserExceptionDefinition.INVALID_USER_DISPLAY_NAME.message, exception.message)
-        verify(userProfileValidator)
+        verify(userProfilePolicy)
             .validateDisplayName(command.displayName)
         verifyNoInteractions(
             userRepositoryPort,
@@ -205,13 +205,13 @@ class RegisterUserServiceTest {
             displayName
         )
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePrincipal(anyString())
         willDoNothing()
-            .given(userCredentialValidator)
+            .given(userCredentialPolicy)
             .validatePassword(anyString())
         willDoNothing()
-            .given(userProfileValidator)
+            .given(userProfilePolicy)
             .validateDisplayName(anyString())
         given(userRepositoryPort.existsByPrincipal(anyString()))
             .willReturn(true)

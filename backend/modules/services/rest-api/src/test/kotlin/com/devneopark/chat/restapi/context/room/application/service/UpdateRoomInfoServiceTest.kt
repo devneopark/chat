@@ -1,7 +1,7 @@
 package com.devneopark.chat.restapi.context.room.application.service
 
 import com.devneopark.chat.lib.domain.room.model.Room
-import com.devneopark.chat.lib.domain.room.service.RoomInfoValidator
+import com.devneopark.chat.restapi.context.room.application.policy.RoomInfoPolicy
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.restapi.context.room.application.exception.DuplicatedTitleException
@@ -29,7 +29,7 @@ import kotlin.test.assertFailsWith
 class UpdateRoomInfoServiceTest {
 
     @Mock
-    lateinit var roomInfoValidator: RoomInfoValidator
+    lateinit var roomInfoPolicy: RoomInfoPolicy
 
     @Mock
     lateinit var passwordHasher: PasswordHasher
@@ -73,8 +73,8 @@ class UpdateRoomInfoServiceTest {
         // then
         assertEquals("New title", room.title)
         assertEquals("new-password-hash", room.passwordHash)
-        verify(roomInfoValidator).validateTitle("New title")
-        verify(roomInfoValidator).validatePassword("NewPassword1")
+        verify(roomInfoPolicy).validateTitle("New title")
+        verify(roomInfoPolicy).validatePassword("NewPassword1")
         verify(passwordHasher).hash("NewPassword1")
         verify(roomRepositoryPort).update(room)
     }
@@ -140,7 +140,7 @@ class UpdateRoomInfoServiceTest {
         assertFailsWith<RoomNotFoundException> {
             updateRoomInfoService.update(command)
         }
-        verifyNoInteractions(roomInfoValidator, passwordHasher)
+        verifyNoInteractions(roomInfoPolicy, passwordHasher)
         verify(roomRepositoryPort).findActiveByIdForUpdate(
             argThat<Room.Id> { it.value == "room-001" } ?: Room.Id("room-001")
         )
@@ -185,8 +185,8 @@ class UpdateRoomInfoServiceTest {
             argThat<Room.Id> { it.value == "room-001" } ?: Room.Id("room-001")
         )
         verifyNoInteractions(passwordHasher)
-        verify(roomInfoValidator).validateTitle("Duplicated title")
-        verify(roomInfoValidator, org.mockito.Mockito.never()).validatePassword("NewPassword1")
+        verify(roomInfoPolicy).validateTitle("Duplicated title")
+        verify(roomInfoPolicy, org.mockito.Mockito.never()).validatePassword("NewPassword1")
         verify(roomRepositoryPort, never()).update(room)
     }
 
@@ -202,14 +202,14 @@ class UpdateRoomInfoServiceTest {
             argThat<Room.Id> { it.value == "room-001" } ?: Room.Id("room-001"),
             argThat<User.Id> { it.value == "user-001" } ?: User.Id("user-001")
         )).willReturn(true)
-        given(roomInfoValidator.validateTitle("Invalid title"))
+        given(roomInfoPolicy.validateTitle("Invalid title"))
             .willThrow(DomainRuleViolationException("2-003-005", "Invalid room title."))
 
         // when & then
         assertFailsWith<DomainRuleViolationException> {
             updateRoomInfoService.update(command)
         }
-        verify(roomInfoValidator).validateTitle("Invalid title")
+        verify(roomInfoPolicy).validateTitle("Invalid title")
         verify(roomRepositoryPort).findActiveByIdForUpdate(
             argThat<Room.Id> { it.value == "room-001" } ?: Room.Id("room-001")
         )
@@ -233,15 +233,15 @@ class UpdateRoomInfoServiceTest {
             argThat<String> { it == "Room title" } ?: "Room title",
             argThat<Room.Id> { it.value == "room-001" } ?: Room.Id("room-001")
         )).willReturn(false)
-        given(roomInfoValidator.validatePassword("invalid"))
+        given(roomInfoPolicy.validatePassword("invalid"))
             .willThrow(DomainRuleViolationException("2-003-006", "Invalid room password."))
 
         // when & then
         assertFailsWith<DomainRuleViolationException> {
             updateRoomInfoService.update(command)
         }
-        verify(roomInfoValidator).validateTitle("Room title")
-        verify(roomInfoValidator).validatePassword("invalid")
+        verify(roomInfoPolicy).validateTitle("Room title")
+        verify(roomInfoPolicy).validatePassword("invalid")
         verifyNoInteractions(passwordHasher)
         verify(roomRepositoryPort, never()).update(room)
     }

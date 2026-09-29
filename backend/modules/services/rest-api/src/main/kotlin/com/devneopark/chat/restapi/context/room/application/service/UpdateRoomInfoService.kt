@@ -1,7 +1,6 @@
 package com.devneopark.chat.restapi.context.room.application.service
 
 import com.devneopark.chat.lib.domain.room.model.Room
-import com.devneopark.chat.lib.domain.room.service.RoomInfoValidator
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.restapi.context.room.application.exception.DuplicatedTitleException
 import com.devneopark.chat.restapi.context.room.application.exception.RoomNotFoundException
@@ -9,6 +8,7 @@ import com.devneopark.chat.restapi.context.room.application.port.inbound.UpdateR
 import com.devneopark.chat.restapi.context.room.application.port.outbound.ParticipantRepositoryPort
 import com.devneopark.chat.restapi.context.room.application.port.outbound.PasswordHasher
 import com.devneopark.chat.restapi.context.room.application.port.outbound.RoomRepositoryPort
+import com.devneopark.chat.restapi.context.room.application.policy.RoomInfoPolicy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class UpdateRoomInfoService(
 
-    private val roomInfoValidator: RoomInfoValidator,
+    private val roomInfoPolicy: RoomInfoPolicy,
 
     private val passwordHasher: PasswordHasher,
 
@@ -39,13 +39,13 @@ class UpdateRoomInfoService(
             throw RoomNotFoundException()
         }
 
-        roomInfoValidator.validateTitle(command.title)
+        roomInfoPolicy.validateTitle(command.title)
         if (roomRepositoryPort.existsByTitleExceptRoomId(command.title, roomId)) {
             throw DuplicatedTitleException()
         }
         var passwordHash: String? = null
         if (command.rawPassword != null) {
-            roomInfoValidator.validatePassword(command.rawPassword)
+            roomInfoPolicy.validatePassword(command.rawPassword)
             passwordHash = passwordHasher.hash(command.rawPassword)
         }
 
