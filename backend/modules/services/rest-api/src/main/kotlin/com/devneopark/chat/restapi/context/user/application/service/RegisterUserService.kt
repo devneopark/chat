@@ -3,13 +3,13 @@ package com.devneopark.chat.restapi.context.user.application.service
 import com.devneopark.chat.lib.domain.user.model.Credential
 import com.devneopark.chat.lib.domain.user.model.Profile
 import com.devneopark.chat.lib.domain.user.model.User
-import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
-import com.devneopark.chat.lib.domain.user.service.UserProfileValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.user.application.exception.DuplicatedPrincipalException
 import com.devneopark.chat.restapi.context.user.application.port.inbound.RegisterUserUseCase
 import com.devneopark.chat.restapi.context.user.application.port.outbound.PasswordHasher
 import com.devneopark.chat.restapi.context.user.application.port.outbound.UserRepositoryPort
+import com.devneopark.chat.restapi.context.user.application.policy.UserCredentialPolicy
+import com.devneopark.chat.restapi.context.user.application.policy.UserProfilePolicy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,9 +20,9 @@ class RegisterUserService(
 
     private val idGenerator: IdGenerator,
 
-    private val userCredentialValidator: UserCredentialValidator,
+    private val userCredentialPolicy: UserCredentialPolicy,
 
-    private val userProfileValidator: UserProfileValidator,
+    private val userProfilePolicy: UserProfilePolicy,
 
     private val passwordHasher: PasswordHasher
 
@@ -30,9 +30,9 @@ class RegisterUserService(
 
     @Transactional
     override suspend fun register(command: RegisterUserUseCase.Command): RegisterUserUseCase.Result {
-        userCredentialValidator.validatePrincipal(command.principal)
-        userCredentialValidator.validatePassword(command.rawPassword)
-        userProfileValidator.validateDisplayName(command.displayName)
+        userCredentialPolicy.validatePrincipal(command.principal)
+        userCredentialPolicy.validatePassword(command.rawPassword)
+        userProfilePolicy.validateDisplayName(command.displayName)
 
         val isPrincipalDuplicated = userRepositoryPort.existsByPrincipal(command.principal)
         if (isPrincipalDuplicated) {

@@ -24,9 +24,7 @@ class AuthenticateAccessCredentialService(
     override suspend fun authenticate(command: AuthenticateAccessCredentialUseCase.Command): AuthenticateAccessCredentialUseCase.Result {
         val verifiedCredential = accessCredentialVerifier.verify(command.serializedCredential)
         val authenticationGrant = authenticationGrantRepositoryPort.findByJti(verifiedCredential.jti)
-            ?: run {
-                throw InvalidAccessCredentialException()
-            }
+            ?: throw InvalidAccessCredentialException()
 
         if (authenticationGrant.userId.value != verifiedCredential.userId) {
             throw InvalidAccessCredentialException()

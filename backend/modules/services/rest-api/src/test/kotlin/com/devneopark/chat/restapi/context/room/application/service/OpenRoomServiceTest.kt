@@ -6,7 +6,7 @@ import com.devneopark.chat.lib.domain.participant.reference.ParticipantId
 import com.devneopark.chat.lib.domain.room.model.Room
 import com.devneopark.chat.lib.domain.room.reference.ExceptionDefinition as RoomExceptionDefinition
 import com.devneopark.chat.lib.domain.room.reference.RoomId
-import com.devneopark.chat.lib.domain.room.service.RoomInfoValidator
+import com.devneopark.chat.restapi.context.room.application.policy.RoomInfoPolicy
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.lib.shared.domain.exception.DomainRuleViolationException
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
@@ -42,7 +42,7 @@ import kotlin.time.toKotlinInstant
 class OpenRoomServiceTest {
 
     @Mock
-    lateinit var roomInfoValidator: RoomInfoValidator
+    lateinit var roomInfoPolicy: RoomInfoPolicy
 
     @Mock
     lateinit var passwordHasher: PasswordHasher
@@ -95,8 +95,8 @@ class OpenRoomServiceTest {
 
         // then
         assertEquals(roomIdValue, result.roomId)
-        verify(roomInfoValidator).validateTitle(title)
-        verify(roomInfoValidator).validatePassword(rawPassword)
+        verify(roomInfoPolicy).validateTitle(title)
+        verify(roomInfoPolicy).validatePassword(rawPassword)
         verify(admissionSlotPolicy).validateCapacity(capacity)
         verify(passwordHasher).hash(rawPassword)
         verify(roomRepositoryPort).existsByTitle(title)
@@ -151,8 +151,8 @@ class OpenRoomServiceTest {
 
         // then
         assertEquals("room-001", result.roomId)
-        verify(roomInfoValidator).validateTitle(title)
-        verify(roomInfoValidator, never()).validatePassword(anyString())
+        verify(roomInfoPolicy).validateTitle(title)
+        verify(roomInfoPolicy, never()).validatePassword(anyString())
         verify(passwordHasher, never()).hash(anyString())
         verify(roomRepositoryPort).insert(
             argThat<Room> {
@@ -222,7 +222,7 @@ class OpenRoomServiceTest {
         // given
         val title = "Invalid title"
         val command = OpenRoomUseCase.Command(title, null, 10, "user-001")
-        given(roomInfoValidator.validateTitle(title))
+        given(roomInfoPolicy.validateTitle(title))
             .willThrow(
                 DomainRuleViolationException(
                     RoomExceptionDefinition.INVALID_ROOM_TITLE.code,
@@ -238,7 +238,7 @@ class OpenRoomServiceTest {
         // then
         assertEquals(RoomExceptionDefinition.INVALID_ROOM_TITLE.code, exception.code)
         assertEquals(RoomExceptionDefinition.INVALID_ROOM_TITLE.message, exception.message)
-        verify(roomInfoValidator).validateTitle(title)
+        verify(roomInfoPolicy).validateTitle(title)
         verifyNoInteractions(
             admissionSlotPolicy,
             roomRepositoryPort,
@@ -256,7 +256,7 @@ class OpenRoomServiceTest {
         val title = "Private room"
         val rawPassword = "invalid"
         val command = OpenRoomUseCase.Command(title, rawPassword, 10, "user-001")
-        given(roomInfoValidator.validatePassword(rawPassword))
+        given(roomInfoPolicy.validatePassword(rawPassword))
             .willThrow(
                 DomainRuleViolationException(
                     RoomExceptionDefinition.INVALID_ROOM_PASSWORD.code,
@@ -272,8 +272,8 @@ class OpenRoomServiceTest {
         // then
         assertEquals(RoomExceptionDefinition.INVALID_ROOM_PASSWORD.code, exception.code)
         assertEquals(RoomExceptionDefinition.INVALID_ROOM_PASSWORD.message, exception.message)
-        verify(roomInfoValidator).validateTitle(title)
-        verify(roomInfoValidator).validatePassword(rawPassword)
+        verify(roomInfoPolicy).validateTitle(title)
+        verify(roomInfoPolicy).validatePassword(rawPassword)
         verifyNoInteractions(
             admissionSlotPolicy,
             roomRepositoryPort,

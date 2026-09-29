@@ -3,7 +3,6 @@ package com.devneopark.chat.restapi.context.room.application.service
 import com.devneopark.chat.lib.domain.participant.model.Participant
 import com.devneopark.chat.lib.domain.participant.model.ParticipantRole
 import com.devneopark.chat.lib.domain.room.model.Room
-import com.devneopark.chat.lib.domain.room.service.RoomInfoValidator
 import com.devneopark.chat.lib.domain.user.model.User
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.room.application.exception.DuplicatedTitleException
@@ -13,6 +12,7 @@ import com.devneopark.chat.restapi.context.room.application.port.outbound.Admiss
 import com.devneopark.chat.restapi.context.room.application.port.outbound.ParticipantRepositoryPort
 import com.devneopark.chat.restapi.context.room.application.port.outbound.PasswordHasher
 import com.devneopark.chat.restapi.context.room.application.port.outbound.RoomRepositoryPort
+import com.devneopark.chat.restapi.context.room.application.policy.RoomInfoPolicy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -21,7 +21,7 @@ import kotlin.time.toKotlinInstant
 @Service
 class OpenRoomService(
 
-    private val roomInfoValidator: RoomInfoValidator,
+    private val roomInfoPolicy: RoomInfoPolicy,
 
     private val passwordHasher: PasswordHasher,
 
@@ -41,10 +41,10 @@ class OpenRoomService(
 
     @Transactional
     override suspend fun open(command: OpenRoomUseCase.Command): OpenRoomUseCase.Result {
-        roomInfoValidator.validateTitle(command.title)
+        roomInfoPolicy.validateTitle(command.title)
         var passwordHash: String? = null
         if (command.rawPassword != null) {
-            roomInfoValidator.validatePassword(command.rawPassword)
+            roomInfoPolicy.validatePassword(command.rawPassword)
             passwordHash = passwordHasher.hash(command.rawPassword)
         }
         admissionSlotPolicy.validateCapacity(command.capacity)

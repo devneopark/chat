@@ -8,6 +8,25 @@ spring:
         - init/data.sql
 
 chat:
+  application:
+    room:
+      policy:
+        validation:
+          capacity: 20
+          info:
+            pattern:
+              title: ^.{1,50}$
+              password: ^[0-9a-zA-Z]{1,32}$
+    user:
+      policy:
+        validation:
+          credential:
+            pattern:
+              principal: ^[a-zA-Z0-9._-]{4,32}$
+              password: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[a-zA-Z0-9-=₩`~!@#$%^&*()_+\[\]\\{}|;':\",./<>?]{8,32}$
+          profile:
+            pattern:
+              displayName: ^.{1,10}$
   infrastructure:
     auth:
       partition:

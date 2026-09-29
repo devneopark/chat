@@ -1,7 +1,6 @@
 package com.devneopark.chat.restapi.context.iam.application.service
 
 import com.devneopark.chat.lib.domain.authentication_grant.model.AuthenticationGrant
-import com.devneopark.chat.lib.domain.user.service.UserCredentialValidator
 import com.devneopark.chat.libs.shared.application.identifier.IdGenerator
 import com.devneopark.chat.restapi.context.iam.application.exception.UserNotFoundException
 import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswordException
@@ -17,8 +16,6 @@ import kotlin.time.toKotlinInstant
 
 @Service
 class GrantAuthenticationService(
-
-    private val userCredentialValidator: UserCredentialValidator,
 
     private val iamUserRepositoryPort: IamUserRepositoryPort,
 
@@ -36,13 +33,8 @@ class GrantAuthenticationService(
 
     @Transactional
     override suspend fun grant(command: GrantAuthenticationUseCase.Command): GrantAuthenticationUseCase.Result {
-        userCredentialValidator.validatePrincipal(command.principal)
-        userCredentialValidator.validatePassword(command.rawPassword)
-
         val user = iamUserRepositoryPort.findByPrincipal(command.principal)
-            ?: run {
-                throw UserNotFoundException()
-            }
+            ?: throw UserNotFoundException()
 
         val passwordHash = user.credential.passwordHash
         val isPasswordMatches = passwordVerifier.matches(command.rawPassword, passwordHash)

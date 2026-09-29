@@ -20,9 +20,7 @@ class UpdateUserProfileService(
     override suspend fun update(command: UpdateUserProfileUseCase.Command) {
         val userId = User.Id.from(command.userId)
         val user = userRepositoryPort.findById(userId)
-            ?: run {
-                throw UserNotFoundException()
-            }
+            ?: throw UserNotFoundException()
         if (user.profile.displayName == command.displayName) {
             return
         }
