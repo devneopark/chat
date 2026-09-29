@@ -28,9 +28,7 @@ class RenewalAuthenticationService(
     override suspend fun renewal(command: RenewalAuthenticationUseCase.Command): RenewalAuthenticationUseCase.Result {
         val renewalCredentialId = command.renewalCredentialId
         val authenticationGrant = authenticationGrantRepositoryPort.findByRenewalCredentialIdForUpdate(renewalCredentialId)
-            ?: run {
-                throw InvalidRenewalCredentialException()
-            }
+            ?: throw InvalidRenewalCredentialException()
 
         val now = clock.instant().toKotlinInstant()
         val isUsableCredential = authenticationGrant.isRenewalCredentialUsable(now)

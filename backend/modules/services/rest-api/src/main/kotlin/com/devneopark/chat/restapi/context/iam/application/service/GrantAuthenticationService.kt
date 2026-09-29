@@ -34,9 +34,7 @@ class GrantAuthenticationService(
     @Transactional
     override suspend fun grant(command: GrantAuthenticationUseCase.Command): GrantAuthenticationUseCase.Result {
         val user = iamUserRepositoryPort.findByPrincipal(command.principal)
-            ?: run {
-                throw UserNotFoundException()
-            }
+            ?: throw UserNotFoundException()
 
         val passwordHash = user.credential.passwordHash
         val isPasswordMatches = passwordVerifier.matches(command.rawPassword, passwordHash)
