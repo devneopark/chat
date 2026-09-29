@@ -14,7 +14,7 @@ import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswo
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordVerifier
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -49,7 +49,7 @@ class GrantAuthenticationServiceTest {
     lateinit var iamUserRepositoryPort: IamUserRepositoryPort
 
     @Mock
-    lateinit var passwordHasher: PasswordHasher
+    lateinit var passwordVerifier: PasswordVerifier
 
     @Mock
     lateinit var clock: Clock
@@ -113,7 +113,7 @@ class GrantAuthenticationServiceTest {
             .validatePassword(command.rawPassword)
         given(iamUserRepositoryPort.findByPrincipal(command.principal))
             .willReturn(user)
-        given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
+        given(passwordVerifier.matches(command.rawPassword, user.credential.passwordHash))
             .willReturn(true)
         given(clock.instant())
             .willReturn(issuedAt)
@@ -169,7 +169,7 @@ class GrantAuthenticationServiceTest {
             .validatePrincipal(command.principal)
         verifyNoInteractions(
             iamUserRepositoryPort,
-            passwordHasher,
+            passwordVerifier,
             clock,
             authenticationCredentialManager,
             idGenerator,
@@ -207,7 +207,7 @@ class GrantAuthenticationServiceTest {
             .validatePassword(command.rawPassword)
         verifyNoInteractions(
             iamUserRepositoryPort,
-            passwordHasher,
+            passwordVerifier,
             clock,
             authenticationCredentialManager,
             idGenerator,
@@ -242,7 +242,7 @@ class GrantAuthenticationServiceTest {
         verify(iamUserRepositoryPort, only())
             .findByPrincipal(command.principal)
         verifyNoInteractions(
-            passwordHasher,
+            passwordVerifier,
             clock,
             authenticationCredentialManager,
             idGenerator,
@@ -270,7 +270,7 @@ class GrantAuthenticationServiceTest {
             .validatePassword(command.rawPassword)
         given(iamUserRepositoryPort.findByPrincipal(command.principal))
             .willReturn(user)
-        given(passwordHasher.matches(command.rawPassword, user.credential.passwordHash))
+        given(passwordVerifier.matches(command.rawPassword, user.credential.passwordHash))
             .willReturn(false)
 
         // when
@@ -281,7 +281,7 @@ class GrantAuthenticationServiceTest {
         // then
         assertEquals("2-001-003", exception.code)
         assertEquals("Wrong password.", exception.message)
-        verify(passwordHasher, only())
+        verify(passwordVerifier, only())
             .matches(command.rawPassword, user.credential.passwordHash)
         verifyNoInteractions(
             clock,

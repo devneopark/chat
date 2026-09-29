@@ -6,6 +6,8 @@ import com.devneopark.chat.restapi.context.user.application.port.outbound.UserRe
 import com.devneopark.chat.restapi.context.user.infrastructure.outbound.r2dbc.model.UserEntity
 import com.devneopark.chat.restapi.context.user.infrastructure.outbound.r2dbc.repository.UserEntityRepository
 import org.springframework.stereotype.Repository
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 /** User 도메인 객체와 R2DBC 영속성 모델 사이의 변환을 담당하는 저장소 어댑터다. */
 @Repository
@@ -15,9 +17,27 @@ class UserRepositoryAdapter(
 
 ) : UserRepositoryPort {
 
+    /** User 도메인 객체를 저장하고 입력받은 객체를 반환한다. */
+    override suspend fun insert(user: User): User {
+        val entity = UserEntity.from(user)
+        userEntityRepository.insert(entity)
+        return user
+    }
+
+    /** 활성 사용자 중 principal이 존재하는지 확인한다. */
+    override suspend fun existsByPrincipal(principal: String): Boolean {
+        return userEntityRepository.existsByPrincipal(principal)
+    }
+
     /** 활성 사용자 엔티티를 조회해 User 도메인 객체로 변환한다. */
     override suspend fun findById(id: UserId): User? {
         return userEntityRepository.findById(id.value)
+            ?.toDomain()
+    }
+
+    /** 활성 사용자 엔티티를 쓰기 잠금으로 조회해 User 도메인 객체로 변환한다. */
+    override suspend fun findByIdForUpdate(id: UserId): User? {
+        return userEntityRepository.findByIdForUpdate(id.value)
             ?.toDomain()
     }
 
@@ -25,6 +45,11 @@ class UserRepositoryAdapter(
     override suspend fun updateProfile(user: User) {
         val entity = UserEntity.from(user)
         userEntityRepository.updateUserProfile(entity)
+    }
+
+    /** 활성 사용자를 탈퇴 상태로 변경한다. */
+    override suspend fun withdraw(userId: UserId, withdrawnAt: Instant) {
+        userEntityRepository.withdraw(userId.value, withdrawnAt.toJavaInstant())
     }
 
 }

@@ -1,4 +1,4 @@
-package com.devneopark.chat.restapi.context.iam.infrastructure.outbound.crypto
+package com.devneopark.chat.restapi.context.user.infrastructure.outbound.crypto
 
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -10,7 +10,6 @@ import org.mockito.Mockito.verify
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.security.crypto.password.PasswordEncoder
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class BCryptUserPasswordHasherTest {
@@ -35,22 +34,6 @@ class BCryptUserPasswordHasherTest {
         // then
         assertEquals(encodedPassword, result)
         verify(passwordEncoder).encode(rawPassword)
-    }
-
-    @Test
-    fun `raw password와 해시된 password의 일치 여부를 password encoder로 확인한다`() = runTest {
-        // given
-        val rawPassword = "raw-password"
-        val encodedPassword = "encoded-password"
-        given(passwordEncoder.matches(rawPassword, encodedPassword))
-            .willReturn(true)
-
-        // when
-        val result = passwordHasher.matches(rawPassword, encodedPassword)
-
-        // then
-        assertTrue(result)
-        verify(passwordEncoder).matches(rawPassword, encodedPassword)
     }
 
 }

@@ -8,7 +8,7 @@ import com.devneopark.chat.restapi.context.iam.application.exception.WrongPasswo
 import com.devneopark.chat.restapi.context.iam.application.port.inbound.GrantAuthenticationUseCase
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationCredentialManager
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.AuthenticationGrantRepositoryPort
-import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordHasher
+import com.devneopark.chat.restapi.context.iam.application.port.outbound.PasswordVerifier
 import com.devneopark.chat.restapi.context.iam.application.port.outbound.IamUserRepositoryPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -22,7 +22,7 @@ class GrantAuthenticationService(
 
     private val iamUserRepositoryPort: IamUserRepositoryPort,
 
-    private val passwordHasher: PasswordHasher,
+    private val passwordVerifier: PasswordVerifier,
 
     private val clock: Clock,
 
@@ -45,7 +45,7 @@ class GrantAuthenticationService(
             }
 
         val passwordHash = user.credential.passwordHash
-        val isPasswordMatches = passwordHasher.matches(command.rawPassword, passwordHash)
+        val isPasswordMatches = passwordVerifier.matches(command.rawPassword, passwordHash)
         if (!isPasswordMatches) {
             throw WrongPasswordException()
         }
