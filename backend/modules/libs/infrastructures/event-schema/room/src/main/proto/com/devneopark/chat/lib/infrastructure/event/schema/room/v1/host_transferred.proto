@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package com.devneopark.chat.lib.infrastructure.event.schema.room.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.devneopark.chat.lib.infrastructure.event.schema.room.v1";
+
+// 채팅방의 호스트가 다른 사용자로 변경되었음을 나타내는 이벤트 payload다.
+message HostTransferred {
+
+  // 호스트가 변경된 채팅방의 식별자다.
+  string room_id = 1;
+
+  // 변경 전 호스트 사용자의 식별자다.
+  string previous_host_user_id = 2;
+
+  // 변경 후 호스트 사용자의 식별자다.
+  string new_host_user_id = 3;
+
+  // 호스트 변경이 완료된 시각이다.
+  google.protobuf.Timestamp transferred_at = 4;
+
+}

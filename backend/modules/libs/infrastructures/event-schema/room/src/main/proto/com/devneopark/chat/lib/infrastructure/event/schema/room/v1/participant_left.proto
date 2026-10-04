@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package com.devneopark.chat.lib.infrastructure.event.schema.room.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.devneopark.chat.lib.infrastructure.event.schema.room.v1";
+
+// 사용자가 채팅방에서 퇴장했음을 나타내는 이벤트 payload다.
+message ParticipantLeft {
+
+  // 퇴장한 채팅방의 식별자다.
+  string room_id = 1;
+
+  // 퇴장한 참여자의 식별자다.
+  string participant_id = 2;
+
+  // 퇴장한 사용자의 식별자다.
+  string user_id = 3;
+
+  // 퇴장 직전에 참여자가 가지고 있던 역할이다.
+  string role_before_leave = 4;
+
+  // 퇴장이 완료된 시각이다.
+  google.protobuf.Timestamp left_at = 5;
+
+}

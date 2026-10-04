@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package com.devneopark.chat.lib.infrastructure.event.schema.room.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.devneopark.chat.lib.infrastructure.event.schema.room.v1";
+
+// 채팅방의 변경 가능한 정보가 변경되었음을 나타내는 이벤트 payload다.
+message RoomInfoChanged {
+
+  // 비밀번호 존재 상태의 변경 유형이다.
+  enum PasswordStateTransition {
+    PASSWORD_STATE_TRANSITION_UNSPECIFIED = 0;
+    ADDED = 1;
+    REMOVED = 2;
+    NONE = 3;
+  }
+
+  // 정보가 변경된 채팅방의 식별자다.
+  string room_id = 1;
+
+  // 변경 후 채팅방의 제목이다.
+  string title = 2;
+
+  // 비밀번호 존재 상태의 변경 유형이다.
+  PasswordStateTransition password_state_transition = 3;
+
+  // 정보 변경이 완료된 시각이다.
+  google.protobuf.Timestamp changed_at = 4;
+
+}
